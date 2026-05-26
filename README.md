@@ -34,11 +34,17 @@ This repository serves strictly as the **Public Issue Tracker, Documentation Hub
 
 ## 🚀 How to Obtain VajraClaw?
 
-To integrate VajraClaw into your production environment, you must purchase a valid Commercial License.
+**Status: 🚧 Commercial Storefront is currently undergoing compliance review.**
 
-1. **Procure a License:** Visit our [Official Pricing Page](https://dr-os.io/pricing).
-2. **Download Binaries:** Upon purchasing, you will receive a secure download link for the compiled binaries (`.dll`, `.so`, `.dylib`) corresponding to your OS architecture.
-3. **Receive License Key:** You will receive a unique License Key bound to your Machine UUIDs.
+To ensure the highest level of security and compliance, our commercial Merchant of Record (MoR) is currently reviewing our deployment procedures. 
+
+During this brief period, direct online checkout is temporarily paused.
+
+1. **Join the Waitlist:** Please contact our enterprise team or visit [dr-os.io/pricing](https://dr-os.io/pricing) to express your interest.
+2. **Early Access:** We are manually onboarding select enterprise partners for early access to the compiled binaries (`.dll`, `.so`, `.dylib`).
+3. **License Keys:** Early access partners will receive manually generated UUID-bound License Keys.
+
+*Thank you for your patience as we finalize our global commercial deployment infrastructure.*
 
 ---
 
