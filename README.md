@@ -13,15 +13,21 @@ Without execution control, AI Agents are a loaded gun pointed at your infrastruc
 
 **VajraClaw doesn't try to make the LLM smarter. It makes the explosion impossible.**
 
-## 2. Try it in 5 minutes (The Execution Sandbox)
+## 2. Try it in 30 Seconds (The Execution Sandbox)
 
-To truly understand VajraClaw, you need to see it stop an attack in real-time. We've built an out-of-the-box **Execution Simulator** for you.
-
-**Prerequisites:** Python 3.9+, Go 1.22+
+To truly understand VajraClaw, you need to see it stop an attack in real-time. 
+We've built an out-of-the-box **Docker Sandbox** so you can experience the First Denial Moment instantly.
 
 ```bash
-git clone https://github.com/dros-io/VajraClaw.git
-cd VajraClaw/FreeTrial-Sandbox
+git clone https://github.com/Top-Celestial-Company-Ltd/VajraClaw.git
+cd VajraClaw
+docker compose up --build
+```
+*(No configuration or setup required. The sandbox will immediately launch and simulate an attack.)*
+
+Alternatively, you can run the simulator directly via Python:
+```bash
+cd FreeTrial-Sandbox
 python run_demo_attack.py
 ```
 

@@ -1,0 +1,8 @@
+version: '3.9'
+services:
+  vajra-sandbox:
+    build: .
+    container_name: vajraclaw-sandbox
+    # Map the local policy file so users can easily tinker with it
+    volumes:
+      - ./FreeTrial-Sandbox/demo_policy.yaml:/app/FreeTrial-Sandbox/demo_policy.yaml
