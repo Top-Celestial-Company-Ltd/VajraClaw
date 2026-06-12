@@ -1,0 +1,214 @@
+\documentclass[UTF8]{ctexart}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={智能體運行期歸責斷層：多智能體系統中基於外部 C-ABI 的不可否認性執行治理基礎設施},
+    pdfpagemode=FullScreen,
+}
+
+\begin{document}
+
+\title{智能體運行期歸責斷層：多智能體系統中基於外部 C-ABI 的不可否認性執行治理基礎設施}
+\author{陳濬程 (Jimmy Chen) \\
+\textit{Top Celestial Company Ltd.} \\
+Taipei, Taiwan R.O.C. \\
+jimmychen@dr-os.io}
+
+\maketitle
+
+\begin{abstract}
+隨著自主 AI 智能體（Autonomous Agents）在企業級環境的廣泛部署，如何將機率性的模型推理行為與確定性的實體世界作業系統調用（Syscalls）進行不可否認的強歸責綁定，已成為多智能體架構中最棘手的安全赤字。本文首次定義了\textbf{智能體運行期歸責斷層（Agent Runtime Attribution Gap）}：現有資安防禦要麼位於「語意認知層」（如 NeMo Guardrails），極易受到提示詞注入（Prompt Injection）與神經幻覺的欺騙；要麼位於「系統內核層」（如 eBPF、SELinux），在多租戶並行環境下對應用層的智能體對話上下文處於完全的「上下文盲區（Context-Blind）」。為了彌合此斷層，我們提出了\textbf{執行不可否認性模型（Execution Non-Repudiation Model）}，並實現了 \textbf{DROS (Deterministic Runtime Operating System)} 微內核治理基礎設施。DROS 將安全邊界強行解耦並下沉至外部函數介面（C-FFI / C-ABI）咽喉處。系統透過編譯期將宣告式契約（Vajra DSL）靜態拍平為確定性二進位點陣圖（Capability Bitmap），在執行期由記憶體安全的 GuardVM 執行 $\mathcal{O}(1)$ 常數時間複雜度的位元運算強迫執法，且完全摒除運行時的大模型推理或文字/JSON 解析。此外，DROS 首創了運行時智能體三級公開金鑰基礎設施（Agent PKI），透過動態簽發的依執行期證書（By-Execution Certificate）確保執行軌跡的不可篡改與不可否認。在實體消費級硬體環境下（PC + Linux VM + NAS）的實證評估顯示，DROS 達成了零繞過的 Fail-Closed 安全邊界，核心攔截延遲僅為 \textbf{484.8 奈秒}，並在承受高並發（50+ 執行緒）、大規模（61,919 次隨機工具調用）的混沌迴圈壓測下，成功完成 182 次 Over-The-Air (OTA) 策略動態熱更新，錄得 \textbf{0 競態危害（Race Conditions）與 0 系統崩潰}。本架構為構建多智能體協作的運作網路（Agentic Web）奠定了零信任的物理安全硬度。
+\end{abstract}
+
+\section{前言}
+在企業導入生成式 AI 與檢索增強生成（RAG）的進程中，多智能體（Multi-Agent）協作成為了處理複雜跨部門業務的主流。然而，現有的開源框架往往基於「完全信任」的內部假設。這種架構衍生出致命的「Agent 信任悖論」：在動輒串聯數十個 Agent 的企業系統中，高權限的決策代理該如何確認它所接收到的指令，確實來自具備「合法資料庫存取權」的下游客戶端，而不是遭到惡意注入後的越權行為？
+
+在商用場景中，例如金融合規、醫療病歷調閱或企業源代碼管理，這種越權將導致毀滅性的資料外洩。為徹底封堵此漏洞，DROS (Deterministic Runtime Operating System) 旨在建立一套確保每次 Agent 調用皆具備「確定性（Deterministic）」與「密碼學證明」的執行層安全治理基礎設施。
+
+\section{威脅模型與安全假說}
+在本研究的理論構建中，我們採取極端的黑盒子惡意環境假設：
+\begin{enumerate}
+\item \textbf{不可信的大腦假設}：我們假設負責推理生成意圖的 LLM 大腦是完全不可信且隨時可能被攻破的。安全邊界不應寄希望於大模型大腦保持清醒。
+\item \textbf{閘口強迫執法原則}：DROS 放棄「全能神」的系統層防禦幻想，不保證攔截所有原生 syscall，但保證只要是經過系統註冊的 \texttt{ToolExecutor} 介面發起的所有外部調用，就必定在 FFI 邊界受到強約束。任何繞過 SDK 發起的 syscall 將由外圍 Docker/eBPF 容器沙箱直接擊斃。
+\end{enumerate}
+
+\section{執行不可否認性模型}
+我們將智能體的執行安全生命週期抽象為一個確定性的數學函數評估過程。給定一個執行元組：
+\begin{equation}
+\text{Decision} = f(\text{Policy}_{\text{Hash}}, \text{Agent}_{ID}, \text{Tool}_{\text{Name}}, \text{Context})
+\end{equation}
+為達成絕對的確定性與不可否認性，該模型強制要求滿足以下四個系統抽象界限：
+\begin{enumerate}
+\item \textbf{靜態合約打平}：所有的權限衝突解析、能力矩陣展開，必須在編譯期完成解析並熔鑄為 Capability Bitmap。
+\item \textbf{常數時間查表}：執行期安全閘口之評估函數 $f$ 的時間複雜度必須為絕對的常數時間 $\mathcal{O}(1)$。
+\item \textbf{零運行時智能}：執行期攔截沙盒在 Hot-path 上不得解析字串、評估 JSON，更不得調用任何 LLM 進行語意決策，僅執行純粹的記憶體唯讀位元運算。
+\item \textbf{不可否認審計綁定}：每一筆執行軌跡必須將具備密碼學不變性的二進位策略雜湊值、智能體身份簽章與執行結果進行不可逆綁定。
+\end{enumerate}
+
+\section{系統架構}
+DROS 架構由編譯期靜態解析、執行期 FFI 位元圖檢索、與多智能體憑證鏈組成。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=3.5in]{DROS_Visual_Assets/dros_defense_layers_zh.png}
+\caption{DROS 執行期安全分層與 FFI/C-ABI 邊界攔截架構}
+\label{fig:defense_layers}
+\end{figure}
+
+\subsection{編譯階段：決定性二進位能力矩陣打平}
+編譯器在內存中執行字母字典排序展開，將 abstract \texttt{Agents} 與 \texttt{Tools} 映射為連續空間的矩陣索引，生成 flat \texttt{policy.bin} 檔。
+
+\subsection{執行階段：FFI 邊界無鎖位元匹配與零拷貝共享記憶體}
+攔截哨 VajraClaw 攔截 FFI。匹配引擎直接運行晶片級位元運算指令：
+\begin{equation}
+\text{Is\_Authorized} = (\text{Bitmap}[R_{\text{agent}}] \gg C_{\text{tool}}) \text{ \& } 0x01
+\end{equation}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=3.5in]{DROS_Visual_Assets/dros_vajra_concurrency_zh.png}
+\caption{多智能體技能點陣圖並發控制與無鎖位元運算檢索}
+\label{fig:concurrency}
+\end{figure}
+
+為了排除跨語言 Marshalling 的記憶體拷貝開銷，DROS 採用零拷貝環形共享記憶體緩衝區。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=3.5in]{DROS_Visual_Assets/dros_zerocopy_zh.png}
+\caption{C-FFI 邊界與 GuardVM 之間的零拷貝共享記憶體機制}
+\label{fig:zerocopy}
+\end{figure}
+
+\subsection{多智能體 PKI 網路：三級憑證鏈治理架構}
+DROS 首創三級密碼學憑證鏈：Root CA (信任根)、AIA (中介簽發授權)、BEC (依執行期單次憑證)。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=3.5in]{DROS_Visual_Assets/dros_pki_chain_zh.png}
+\caption{DROS Agent 三級憑證鏈金鑰管理架構}
+\label{fig:pki_chain}
+\end{figure}
+
+證書動態簽發與撤銷流程維持著實體通關的強物理剛性：
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=3.5in]{DROS_Visual_Assets/dros_lifecycle_flow_zh.png}
+\caption{AIA 動態證書簽發與 Epoch 熔斷/熱更新生命週期流}
+\label{fig:lifecycle}
+\end{figure}
+
+\section{系統實證與效能評估}
+本團隊基於微內核與測試套件，在開發 PC（模擬地端/客戶端）、Ubuntu Headless VM（模擬網關）與 NAS 儲存（模擬審計 Vault）組成的本地消費級硬體環境（Home Lab）中，執行了極限壓測。
+
+\subsection{實驗環境與測試方法}
+\begin{itemize}
+\item \textbf{客戶端模擬節點（Developer PC）}：8 邏輯核心、16GB RAM 的 Windows 主機，發送並發 Swarm 請求。
+\item \textbf{執行網關節點（GuardVM Gateway）}：Ubuntu Headless 虛擬機器（4 vCPUs, 4GB RAM）運行 VajraClaw C-ABI 攔截守護。
+\item \textbf{審計金庫節點（NAS Audit Vault）}：網路儲存伺服器（NAS），用於日誌持久化存儲。
+\item \textbf{計時與測量方法}：數據採用高解析度單調時鐘測量。每個數據點經過 100,000 次重複 Lookups 取平均值。
+\end{itemize}
+
+\subsection{歸責與隔離測試}
+傳統 eBPF 無法區分同進程內部 `python3` 的 Agent A 與 Agent B（Context-Blind 盲區），隔離失敗。DROS 的 `VajraClaw` 切斷 FFI 邊界，在 \textbf{484 ns} 內檢索點陣圖，對 Agent A 惡意調用執行 Thread Panic 熔斷，而 Agent B 正常通過。
+
+\subsection{熱更新與無競爭測試}
+我們模擬 50 個高併發 Agent 執行緒，同時控制面每 10 毫秒向網關強行推送 OTA 策略。在數小時混沌壓測下，系統處理了 \textbf{61,919 次} 隨機工具調用，完成了 \textbf{187 次} 內存策略指針熱切換，錄得 \textbf{0 競態危害與 0 系統崩潰}。
+
+\begin{table}[htbp]
+\caption{DROS 核心效能指標}
+\centering
+\begin{tabular}{lll}
+\toprule
+評估維度 & 實測量化指標值 & 學術與工業級顯著性意義 \\
+\midrule
+單次策略檢索延遲 & 352.0 奈秒 & 次微秒級防禦邊界，I/O 影響可忽略 \\
+高負載峰值攔截延遲 & 484.8 奈秒 & 並發壓測極限下的穩定次微秒剛度 \\
+時間複雜度曲線 & 絕對 $\mathcal{O}(1)$ & 橫平直線，規則數增加延遲不增長 \\
+執行期字串解析開銷 & 0.000000 記憶體 & 零 parser 足跡，消除 JSON 解析洩漏 \\
+\bottomrule
+\end{tabular}
+\label{tab:perf}
+\end{table}
+
+我們將 DROS 的位元匹配延遲與傳統 OPA 隨規則規模擴展時的延遲對比，以及在並發執行緒增加時的平均延遲變動繪製為圖 6 與圖 7。DROS 的延遲曲線始終保持平坦。
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=3.3in]{DROS_Visual_Assets/dros_vs_opa_benchmark.png}
+\caption{DROS 與 OPA 策略檢索延遲隨規則規模擴展之對比曲線}
+\label{fig:vs_opa}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=3.3in]{DROS_Visual_Assets/dros_concurrency_latency.png}
+\caption{DROS 與 OPA 在並發執行緒增加時的延遲變動曲線}
+\label{fig:concurrency_latency}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=3.5in]{DROS_Visual_Assets/dros_rcu_zh.png}
+\caption{基於 Epoch 鎖定與 RCU（Read-Copy-Update）的無鎖策略熱更新並發模型}
+\label{fig:rcu_model}
+\end{figure}
+
+\subsection{繞過與越權測試}
+當我們在虛擬機器上將 DROS 與開源智能體框架 OpenClaw 整合，紅隊嘗試繞過 SDK 直接呼叫 FFI 介面時，GuardVM 網關在第一層密碼學驗證時直接熔斷。若直接呼叫 syscall，外圍容器沙盒因缺乏密碼學簽章直接將 PID 殺死。
+
+\subsection{不可否認性審計測試}
+在 NAS Audit Vault 中檢驗的審計日誌完美綁定了 `Agent Identity` + `Policy SHA-256 Hash` + `Decision`，為法醫學溯源提供鐵證。
+
+\section{相關研究}
+\begin{enumerate}
+\item \textbf{vs. SPIFFE/SPIRE}：SPIFFE 提供工作負載身份證明，但無法在 I/O 與 Syscall 層面執行物理阻斷。
+\item \textbf{vs. OPA (Open Policy Agent)}：OPA 依賴動態 JSON 解析，帶來毫秒級延遲。DROS 靜態扁平化為 bitmap，將檢索壓縮為 352 奈秒（快了數萬倍）。
+\item \textbf{vs. eBPF Policy}：eBPF 運行在內核空間，對同進程內部協作線程的語意會話上下文盲目（Context-Blind）。DROS 定位為中介身份執法層填補此空白。
+\end{enumerate}
+
+\section{結論與未來工作}
+本研究正式定義了智能體運行期歸責斷層，並通過實作 DROS 零信任微內核，成功證明了將行為邊界交由編譯期靜態解析、執行期 FFI 常數時間位元運算硬約束的架構可行性。未來將結合 TEE 建立更堅固的物理骨幹。
+
+\section*{AI 協作宣告}
+在撰寫本論文與開發原型系統的過程中，作者利用了大型語言模型協助進行學術文獻翻譯、程式碼框架生成、以及英文化排版校對。作者對本文的所有邏輯架構、核心演算法設計與最終內容承擔完全責任，並已對 AI 生成之內容進行了嚴格的審查與驗證。
+
+\begin{thebibliography}{10}
+
+\bibitem{nist-zt}
+S. Rose, O. Borchert, S. Mitchell, and S. Connelly, ``Zero Trust Architecture,'' \emph{NIST Special Publication 800-207}, Aug. 2020.
+
+\bibitem{rsa}
+R. L. Rivest, A. Shamir, and L. Adleman, ``A method for obtaining digital signatures and public-key cryptosystems,'' \emph{Communications of the ACM}, vol. 21, no. 2, pp. 120--126, 1978.
+
+\bibitem{jwt}
+M. Jones, J. Bradley, and N. Sakimura, ``JSON Web Token (JWT),'' \emph{RFC 7519}, May 2015.
+
+\bibitem{aiact}
+European Parliament and Council of the European Union, ``Regulation (EU) 2024/1689 of the European Parliament and of the Council of 13 June 2024 laying down harmonised rules on artificial intelligence (Artificial Intelligence Act),'' \emph{Official Journal of the European Union}, Jun. 2024.
+
+\bibitem{mas}
+M. Wooldridge, \emph{An Introduction to Multiagent Systems}, 2nd ed. Wiley, 2009.
+
+\bibitem{spiffe}
+E. Feldman et al., ``SPIFFE: Secure Production Identity Framework for Everyone,'' \emph{Cloud Native Computing Foundation (CNCF)}, 2024.
+
+\bibitem{owasp-llm}
+OWASP Foundation, ``OWASP Top 10 for Large Language Model Applications,'' \emph{OWASP Foundation}, 2025.
+
+\end{thebibliography}
+
+\end{document}
