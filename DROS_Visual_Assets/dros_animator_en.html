@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DROS & VajraClaw End-to-End Security Flow Animator</title>
+    <style>
+        body {
+            background-color: #0E161B;
+            color: #E2E8F0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 800x600 aspect ratio container */
+        .canvas-container {
+            width: 800px;
+            height: 600px;
+            background-color: #152026;
+            border-radius: 12px;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #1F2E38;
+            overflow: hidden;
+        }
+
+        /* Header Banner */
+        .header {
+            width: 760px;
+            height: 40px;
+            background-color: #1A252C;
+            border-radius: 6px;
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            padding-left: 20px;
+            box-sizing: border-box;
+            border-left: 4px solid #3498DB;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: #FFFFFF;
+        }
+
+        /* Row Titles */
+        .row-title {
+            position: absolute;
+            left: 40px;
+            font-size: 11px;
+            color: #8A9BA8;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .rt1 { top: 72px; }
+        .rt2 { top: 212px; }
+        .rt3 { top: 352px; }
+
+        /* Flow SVG overlay (behind boxes) */
+        svg.connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 800px;
+            height: 600px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        svg.connections path {
+            fill: none;
+            stroke: #24333D;
+            stroke-width: 2;
+            stroke-dasharray: 6 4;
+            transition: all 0.5s ease;
+        }
+
+        /* Interactive Path Classes */
+        svg.connections path.active-blue {
+            stroke: #3498DB;
+            stroke-width: 3.5;
+            animation: march-blue 0.8s linear infinite;
+        }
+        svg.connections path.active-green {
+            stroke: #2ECC71;
+            stroke-width: 3.5;
+            animation: march-green 0.8s linear infinite;
+        }
+        svg.connections path.active-red {
+            stroke: #E74C3C;
+            stroke-width: 3.5;
+            animation: march-red 0.8s linear infinite;
+        }
+
+        @keyframes march-blue { to { stroke-dashoffset: -10; } }
+        @keyframes march-green { to { stroke-dashoffset: -10; } }
+        @keyframes march-red { to { stroke-dashoffset: -10; } }
+
+        /* Box Layout positioning */
+        .box {
+            position: absolute;
+            width: 200px;
+            height: 65px;
+            background-color: #1B2B34;
+            border: 2px solid #2C3E50;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8px;
+            box-sizing: border-box;
+            z-index: 2;
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            font-size: 11px;
+            line-height: 1.3;
+            font-weight: 500;
+        }
+
+        .box .badge {
+            font-size: 8.5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 4px;
+            background-color: #24333D;
+            color: #8A9BA8;
+        }
+
+        /* Active Glow Styles */
+        .box.active-blue {
+            transform: scale(1.04);
+            border-color: #3498DB;
+            background-color: #1A364A;
+            box-shadow: 0 0 15px rgba(52,152,219,0.5);
+            color: #FFFFFF;
+        }
+        .box.active-blue .badge {
+            background-color: #2980B9;
+            color: #FFFFFF;
+        }
+
+        .box.active-green {
+            transform: scale(1.04);
+            border-color: #2ECC71;
+            background-color: #1D3D2C;
+            box-shadow: 0 0 15px rgba(46,204,113,0.5);
+            color: #FFFFFF;
+        }
+        .box.active-green .badge {
+            background-color: #27AE60;
+            color: #FFFFFF;
+        }
+
+        .box.active-orange {
+            transform: scale(1.04);
+            border-color: #F1C40F;
+            background-color: #3E3B1E;
+            box-shadow: 0 0 15px rgba(241,196,15,0.5);
+            color: #FFFFFF;
+        }
+        .box.active-orange .badge {
+            background-color: #D4AC0D;
+            color: #FFFFFF;
+        }
+
+        .box.active-red {
+            transform: scale(1.04);
+            border-color: #E74C3C;
+            background-color: #4A2724;
+            box-shadow: 0 0 15px rgba(231,76,60,0.5);
+            color: #FFFFFF;
+        }
+        .box.active-red .badge {
+            background-color: #C0392B;
+            color: #FFFFFF;
+        }
+
+        /* Coordinates mapping */
+        #b11 { left: 40px; top: 100px; }
+        #b12 { left: 290px; top: 100px; }
+        #b13 { left: 540px; top: 100px; }
+
+        #b21 { left: 40px; top: 240px; }
+        #b22 { left: 290px; top: 240px; }
+        #b23 { left: 540px; top: 240px; }
+
+        #b31 { left: 40px; top: 380px; }
+        #b32 { left: 290px; top: 380px; }
+        #b33 { left: 540px; top: 380px; }
+
+        /* Path Labels */
+        .path-label {
+            position: absolute;
+            font-size: 9.5px;
+            font-weight: bold;
+            color: #8A9BA8;
+            background-color: #152026;
+            padding: 2px 6px;
+            border-radius: 4px;
+            z-index: 3;
+            transition: all 0.5s ease;
+            pointer-events: none;
+            opacity: 0.5;
+            text-transform: uppercase;
+        }
+        .path-label.active {
+            opacity: 1;
+            color: #FFFFFF;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        #pl-bec { left: 660px; top: 195px; }
+        #pl-call { left: 245px; top: 250px; }
+        #pl-compare { left: 495px; top: 250px; }
+        #pl-violation { left: 310px; top: 325px; }
+        #pl-write { left: 245px; top: 395px; }
+        #pl-sign { left: 495px; top: 395px; }
+
+        /* Footer Info & Config */
+        .footer {
+            position: absolute;
+            bottom: 12px;
+            left: 40px;
+            right: 40px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 9.5px;
+            color: #627380;
+            border-top: 1px solid #1F2E38;
+            padding-top: 10px;
+        }
+
+        /* Control Panel */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn {
+            background-color: #1F2E38;
+            border: 1px solid #34495E;
+            color: #E2E8F0;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #34495E;
+            border-color: #3498DB;
+            box-shadow: 0 0 10px rgba(52,152,219,0.3);
+        }
+        .btn-primary {
+            background-color: #1A364A;
+            border-color: #2980B9;
+        }
+        .btn-primary:hover {
+            background-color: #2980B9;
+        }
+
+        /* Info Board */
+        .info-board {
+            width: 800px;
+            background-color: #152026;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            box-sizing: border-box;
+            border: 1px solid #1F2E38;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .info-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #3498DB;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .info-title .step-badge {
+            background-color: #3498DB;
+            color: #FFFFFF;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .info-desc {
+            font-size: 12.5px;
+            line-height: 1.6;
+            color: #E2E8F0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 800x600 canvas -->
+    <div class="canvas-container" id="capture-area">
+        <div class="header">
+            <h1 id="main-title">DROS & VajraClaw End-to-End Security & Attestation Flow</h1>
+        </div>
+
+        <div class="row-title rt1">1. Policy & Identity Initialization</div>
+        <div class="row-title rt2">2. Threat Injection & Boundary Interception</div>
+        <div class="row-title rt3">3. Enforcement & Audit Attestation</div>
+
+        <!-- Connections SVG Overlay -->
+        <svg class="connections">
+            <!-- Row 1 paths -->
+            <path id="p-11-12" d="M 140 132 L 390 132" />
+            <path id="p-12-13" d="M 390 132 L 640 132" />
+            
+            <!-- BEC bind path down to check -->
+            <path id="p-bec-load" d="M 640 132 L 640 272" />
+
+            <!-- Row 2 paths -->
+            <path id="p-21-22" d="M 140 272 L 390 272" />
+            <path id="p-22-23" d="M 390 272 L 640 272" />
+
+            <!-- Violation Orthogonal Path -->
+            <path id="p-violation" d="M 640 272 L 640 338 L 140 338 L 140 412" />
+
+            <!-- Row 3 paths -->
+            <path id="p-31-32" d="M 140 412 L 390 412" />
+            <path id="p-32-33" d="M 390 412 L 640 412" />
+        </svg>
+
+        <!-- Dynamic Labels -->
+        <div class="path-label" id="pl-bec">Load BEC Scope</div>
+        <div class="path-label" id="pl-call">Trigger Call</div>
+        <div class="path-label" id="pl-compare">Compare</div>
+        <div class="path-label" id="pl-violation" style="color: #EC7063;">❌ Scope Intersection Empty (Violation)</div>
+        <div class="path-label" id="pl-write">Write Logs</div>
+        <div class="path-label" id="pl-sign">Sign Proof</div>
+
+        <!-- Box Nodes -->
+        <!-- Row 1 Nodes -->
+        <div class="box" id="b11">
+            <span>Define Security Rules</span>
+            <span class="badge" style="color:#5DADE2;">Vajra.md / DSL</span>
+        </div>
+        <div class="box" id="b12">
+            <span>Binary AOT Compile</span>
+            <span class="badge" style="color:#5DADE2;">policy.bin</span>
+        </div>
+        <div class="box" id="b13">
+            <span>AIA Issue Credential</span>
+            <span class="badge" style="color:#2ECC71;">BEC Scope Binding</span>
+        </div>
+
+        <!-- Row 2 Nodes -->
+        <div class="box" id="b21">
+            <span>Indirect Prompt Injection</span>
+            <span class="badge" style="color:#EC7063;">External Threat</span>
+        </div>
+        <div class="box" id="b22">
+            <span>FFI / C-ABI Interceptor</span>
+            <span class="badge" style="color:#F1C40F;">VajraClaw Checkpoint</span>
+        </div>
+        <div class="box" id="b23">
+            <span>O(1) Bitwise Matrix Check</span>
+            <span class="badge" style="color:#F1C40F;">BEC Scope Check</span>
+        </div>
+
+        <!-- Row 3 Nodes -->
+        <div class="box" id="b31">
+            <span>Physical Circuit Break</span>
+            <span class="badge" style="color:#EC7063;">Fail-Closed Block</span>
+        </div>
+        <div class="box" id="b32">
+            <span>Cold Storage Backup</span>
+            <span class="badge" style="color:#BDC3C7;">NAS WORM Read-Only</span>
+        </div>
+        <div class="box" id="b33">
+            <span>Non-Repudiation Proof</span>
+            <span class="badge" style="color:#2ECC71;">AIA RSA-2048 Sign</span>
+        </div>
+
+        <div class="footer">
+            <span>Config: enable_thread_isolation: true + Untrusted flag</span>
+            <span>Latency: VajraClaw Core 484.8 ns | End-to-End Interception 8–80 μs</span>
+        </div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="controls">
+        <button class="btn btn-primary" id="btn-next" onclick="nextStep()">Next Step</button>
+        <button class="btn" id="btn-play" onclick="togglePlay()">Auto Play</button>
+        <button class="btn" id="btn-reset" onclick="resetFlow()">Reset</button>
+        <span style="font-size: 13px; color: #8A9BA8; margin-left: 20px;" id="step-number">Current Step: 0 / 6</span>
+    </div>
+
+    <!-- Info Board -->
+    <div class="info-board">
+        <div class="info-title" id="info-header">
+            <span class="step-badge" id="info-badge">Step 0</span>
+            <span id="info-title-text">Click "Next Step" to start the walkthrough</span>
+        </div>
+        <div class="info-desc" id="info-desc-en">
+            Welcome to the DROS / VajraClaw Interactive Flow Animator. This animation leads you step-by-step through rules compilation, BEC token binding, threat injection, FFI checkpointing, physical blocking, and cryptographic attestation.
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        let autoPlayInterval = null;
+
+        const steps = [
+            {
+                title_en: "Step 1: Policy Rule Definition & Binary AOT Compilation",
+                desc_en: "Admin defines fine-grained permissions inside Vajra.md. The AOT compilation engine then compresses them into a policy.bin binary. During execution, the kernel uses a hardcoded Root CA public key to prevent tampering.",
+                active_boxes: ["b11", "b12"],
+                active_paths: ["p-11-12"],
+                active_colors: { "b11": "active-blue", "b12": "active-blue" },
+                path_colors: { "p-11-12": "active-blue" },
+                labels: []
+            },
+            {
+                title_en: "Step 2: VajraAgent Bootstrapping & AIA Identity Binding",
+                desc_en: "VajraAgent starts up. AIA (Agent Identity Authority) performs a chip-level identity attestation (Keystore/Secure Enclave). Upon verification, it issues a Binding Execution Credential (BEC) mapping the Agent's unique authorized scopes.",
+                active_boxes: ["b13"],
+                active_paths: ["p-12-13", "p-bec-load"],
+                active_colors: { "b13": "active-green" },
+                path_colors: { "p-12-13": "active-blue", "p-bec-load": "active-green" },
+                labels: ["pl-bec"]
+            },
+            {
+                title_en: "Step 3: Indirect Prompt Injection & Hallucination Threat",
+                desc_en: "A threat event occurs. The Agent processes an external webpage containing hidden malicious scripts (Indirect Prompt Injection) or hallucinates, triggering an unauthorized tool call targeting restricted directories.",
+                active_boxes: ["b21"],
+                active_paths: [],
+                active_colors: { "b21": "active-red" },
+                path_colors: {},
+                labels: []
+            },
+            {
+                title_en: "Step 4: FFI Boundary Interception & O(1) Matrix Validation",
+                desc_en: "The execution command is caught at the FFI / C-ABI checkpoint by VajraClaw. Rather than running slow semantic audits, VajraClaw loads the BEC token and policy.bin to perform a high-performance O(1) bitwise matrix intersection check in memory.",
+                active_boxes: ["b22", "b23"],
+                active_paths: ["p-21-22", "p-22-23"],
+                active_colors: { "b22": "active-orange", "b23": "active-orange" },
+                path_colors: { "p-21-22": "active-red", "p-22-23": "active-red" },
+                labels: ["pl-call", "pl-compare"]
+            },
+            {
+                title_en: "Step 5: Scope Intersection Empty -> Fail-Closed Block",
+                desc_en: "VajraClaw calculates that the Scope intersection is empty. This means the Agent has no authority to touch this tool. The microkernel triggers a Fail-Closed circuit break, killing the thread to isolate the threat.",
+                active_boxes: ["b31"],
+                active_paths: ["p-violation"],
+                active_colors: { "b31": "active-red" },
+                path_colors: { "p-violation": "active-red" },
+                labels: ["pl-violation"]
+            },
+            {
+                title_en: "Step 6: Immutable Log Backup & Cryptographic Attestation",
+                desc_en: "The block event log is saved to L1 local SSD, synced to NAS WORM cold storage, and locked as read-only. AIA signs the log's SHA-256 hash using its RSA-2048 private key, generating an undeniable .sig proof for compliance.",
+                active_boxes: ["b32", "b33"],
+                active_paths: ["p-31-32", "p-32-33"],
+                active_colors: { "b32": "active-blue", "b33": "active-green" },
+                path_colors: { "p-31-32": "active-blue", "p-32-33": "active-green" },
+                labels: ["pl-write", "pl-sign"]
+            }
+        ];
+
+        function resetFlow() {
+            currentStep = 0;
+            updateUI();
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                document.getElementById('btn-play').textContent = "Auto Play";
+            }
+        }
+
+        function nextStep() {
+            if (currentStep < steps.length) {
+                currentStep++;
+            } else {
+                currentStep = 1; // loop
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            // Reset all boxes and paths
+            document.querySelectorAll('.box').forEach(b => {
+                b.className = 'box';
+            });
+            document.querySelectorAll('svg.connections path').forEach(p => {
+                p.className.baseVal = '';
+            });
+            document.querySelectorAll('.path-label').forEach(l => {
+                l.classList.remove('active');
+            });
+
+            document.getElementById('step-number').textContent = `Current Step: ${currentStep} / ${steps.length}`;
+
+            if (currentStep === 0) {
+                document.getElementById('info-badge').textContent = "Step 0";
+                document.getElementById('info-title-text').textContent = "Click 'Next Step' to start the walkthrough";
+                document.getElementById('info-desc-en').textContent = "Welcome to the DROS / VajraClaw Interactive Flow Animator. This animation leads you step-by-step through rules compilation, BEC token binding, threat injection, FFI checkpointing, physical blocking, and cryptographic attestation.";
+                return;
+            }
+
+            const step = steps[currentStep - 1];
+
+            // Set Title & Badge
+            document.getElementById('info-badge').textContent = `Step ${currentStep}`;
+            document.getElementById('info-title-text').textContent = step.title_en;
+            document.getElementById('info-desc-en').textContent = step.desc_en;
+
+            // Highlight Active Boxes from CURRENT step
+            Object.keys(step.active_colors).forEach(boxId => {
+                const colorClass = step.active_colors[boxId];
+                document.getElementById(boxId).classList.add(colorClass);
+            });
+
+            // Highlight Active Paths from CURRENT step
+            Object.keys(step.path_colors).forEach(pathId => {
+                const pathColor = step.path_colors[pathId];
+                document.getElementById(pathId).className.baseVal = pathColor;
+            });
+
+            // Show labels
+            step.labels.forEach(labelId => {
+                document.getElementById(labelId).classList.add('active');
+            });
+
+            // Make cumulative highlights to show progress
+            for (let i = 0; i < currentStep - 1; i++) {
+                const prevStep = steps[i];
+                Object.keys(prevStep.active_colors).forEach(boxId => {
+                    const colorClass = prevStep.active_colors[boxId];
+                    if (!document.getElementById(boxId).classList.contains(colorClass)) {
+                        document.getElementById(boxId).classList.add(colorClass);
+                    }
+                });
+                Object.keys(prevStep.path_colors).forEach(pathId => {
+                    const pathColor = prevStep.path_colors[pathId];
+                    document.getElementById(pathId).className.baseVal = pathColor;
+                });
+                prevStep.labels.forEach(labelId => {
+                    document.getElementById(labelId).classList.add('active');
+                });
+            }
+        }
+
+        function togglePlay() {
+            const btn = document.getElementById('btn-play');
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                btn.textContent = "Auto Play";
+            } else {
+                nextStep();
+                autoPlayInterval = setInterval(() => {
+                    if (currentStep === steps.length) {
+                        resetFlow();
+                        nextStep();
+                    } else {
+                        nextStep();
+                    }
+                }, 4000); // 4 seconds per step
+                btn.textContent = "Pause";
+            }
+        }
+
+        // Initialize UI
+        updateUI();
+    </script>
+</body>
+</html>

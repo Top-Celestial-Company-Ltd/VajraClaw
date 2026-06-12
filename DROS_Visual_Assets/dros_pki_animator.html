@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DROS PKI & CA Certificate Chain Flow Animator</title>
+    <style>
+        body {
+            background-color: #0E161B;
+            color: #E2E8F0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 800x600 aspect ratio container */
+        .canvas-container {
+            width: 800px;
+            height: 600px;
+            background-color: #152026;
+            border-radius: 12px;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #1F2E38;
+            overflow: hidden;
+        }
+
+        /* Header Banner */
+        .header {
+            width: 760px;
+            height: 40px;
+            background-color: #1A252C;
+            border-radius: 6px;
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            padding-left: 20px;
+            box-sizing: border-box;
+            border-left: 4px solid #2ECC71;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: #FFFFFF;
+        }
+
+        /* Row Titles */
+        .row-title {
+            position: absolute;
+            left: 40px;
+            font-size: 12px;
+            color: #8A9BA8;
+            font-weight: 600;
+        }
+        .rt1 { top: 72px; }
+        .rt2 { top: 212px; }
+        .rt3 { top: 352px; }
+
+        /* Flow SVG overlay (behind boxes) */
+        svg.connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 800px;
+            height: 600px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        svg.connections path {
+            fill: none;
+            stroke: #24333D;
+            stroke-width: 2;
+            stroke-dasharray: 6 4;
+            transition: all 0.5s ease;
+        }
+
+        /* Interactive Path Classes */
+        svg.connections path.active-blue {
+            stroke: #3498DB;
+            stroke-width: 3.5;
+            animation: march-blue 0.8s linear infinite;
+        }
+        svg.connections path.active-green {
+            stroke: #2ECC71;
+            stroke-width: 3.5;
+            animation: march-green 0.8s linear infinite;
+        }
+        svg.connections path.active-yellow {
+            stroke: #F1C40F;
+            stroke-width: 3.5;
+            animation: march-yellow 0.8s linear infinite;
+        }
+        svg.connections path.active-red {
+            stroke: #E74C3C;
+            stroke-width: 3.5;
+            animation: march-red 0.8s linear infinite;
+        }
+
+        @keyframes march-blue { to { stroke-dashoffset: -10; } }
+        @keyframes march-green { to { stroke-dashoffset: -10; } }
+        @keyframes march-yellow { to { stroke-dashoffset: -10; } }
+        @keyframes march-red { to { stroke-dashoffset: -10; } }
+
+        /* Box Layout positioning */
+        .box {
+            position: absolute;
+            width: 200px;
+            height: 65px;
+            background-color: #1B2B34;
+            border: 2px solid #2C3E50;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 10px;
+            box-sizing: border-box;
+            z-index: 2;
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            font-size: 11px;
+            line-height: 1.4;
+            font-weight: 500;
+        }
+
+        .box .badge {
+            font-size: 8.5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 4px;
+            background-color: #24333D;
+            color: #8A9BA8;
+        }
+
+        /* Active Glow Styles */
+        .box.active-blue {
+            transform: scale(1.04);
+            border-color: #3498DB;
+            background-color: #1A364A;
+            box-shadow: 0 0 15px rgba(52,152,219,0.5);
+            color: #FFFFFF;
+        }
+        .box.active-blue .badge {
+            background-color: #2980B9;
+            color: #FFFFFF;
+        }
+
+        .box.active-green {
+            transform: scale(1.04);
+            border-color: #2ECC71;
+            background-color: #1D3D2C;
+            box-shadow: 0 0 15px rgba(46,204,113,0.5);
+            color: #FFFFFF;
+        }
+        .box.active-green .badge {
+            background-color: #27AE60;
+            color: #FFFFFF;
+        }
+
+        .box.active-orange {
+            transform: scale(1.04);
+            border-color: #F1C40F;
+            background-color: #3E3B1E;
+            box-shadow: 0 0 15px rgba(241,196,15,0.5);
+            color: #FFFFFF;
+        }
+        .box.active-orange .badge {
+            background-color: #D4AC0D;
+            color: #FFFFFF;
+        }
+
+        .box.active-red {
+            transform: scale(1.04);
+            border-color: #E74C3C;
+            background-color: #4A2724;
+            box-shadow: 0 0 15px rgba(231,76,60,0.5);
+            color: #FFFFFF;
+        }
+        .box.active-red .badge {
+            background-color: #C0392B;
+            color: #FFFFFF;
+        }
+
+        /* Coordinates mapping */
+        #b11 { left: 40px; top: 100px; }
+        #b12 { left: 290px; top: 100px; }
+        #b13 { left: 540px; top: 100px; }
+
+        #b21 { left: 40px; top: 240px; }
+        #b22 { left: 290px; top: 240px; }
+        #b23 { left: 540px; top: 240px; }
+
+        #b31 { left: 40px; top: 380px; }
+        #b32 { left: 290px; top: 380px; }
+        #b33 { left: 540px; top: 380px; }
+
+        /* Path Labels */
+        .path-label {
+            position: absolute;
+            font-size: 10px;
+            font-weight: bold;
+            color: #8A9BA8;
+            background-color: #152026;
+            padding: 2px 6px;
+            border-radius: 4px;
+            z-index: 3;
+            transition: all 0.5s ease;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+        .path-label.active {
+            opacity: 1;
+            color: #FFFFFF;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        #pl-sign-aia { left: 160px; top: 110px; }
+        #pl-sign-bec { left: 410px; top: 110px; }
+        #pl-intercept { left: 140px; top: 250px; }
+        #pl-check { left: 415px; top: 250px; }
+        #pl-verify { left: 660px; top: 310px; }
+        #pl-revoke { left: 415px; top: 390px; }
+
+        /* Footer Info & Config */
+        .footer {
+            position: absolute;
+            bottom: 12px;
+            left: 40px;
+            right: 40px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #627380;
+            border-top: 1px solid #1F2E38;
+            padding-top: 10px;
+        }
+
+        /* Control Panel */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn {
+            background-color: #1F2E38;
+            border: 1px solid #34495E;
+            color: #E2E8F0;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #34495E;
+            border-color: #3498DB;
+            box-shadow: 0 0 10px rgba(52,152,219,0.3);
+        }
+        .btn-primary {
+            background-color: #1A364A;
+            border-color: #2980B9;
+        }
+        .btn-primary:hover {
+            background-color: #2980B9;
+        }
+
+        /* Bilingual Info Board */
+        .info-board {
+            width: 800px;
+            background-color: #152026;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            box-sizing: border-box;
+            border: 1px solid #1F2E38;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .info-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #2ECC71;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .info-title .step-badge {
+            background-color: #2ECC71;
+            color: #0E161B;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .info-desc {
+            font-size: 12.5px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+            color: #E2E8F0;
+        }
+        .info-desc.en {
+            color: #8A9BA8;
+            border-top: 1px dashed #1F2E38;
+            padding-top: 8px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 800x600 Interactive canvas -->
+    <div class="canvas-container" id="capture-area">
+        <div class="header">
+            <h1 id="main-title">DROS 運行期歸責三級憑證鏈架構與驗證流程 (PKI & CA)</h1>
+        </div>
+
+        <div class="row-title rt1">1. 金鑰初始化與信任傳遞 (Key Init & Issuance)</div>
+        <div class="row-title rt2">2. 運行期邊界攔截與驗證 (Runtime Verification)</div>
+        <div class="row-title rt3">3. 憑證動態吊銷與熱熔斷 (Revocation & Auditing)</div>
+
+        <!-- Connections SVG Overlay -->
+        <svg class="connections">
+            <!-- Row 1 paths -->
+            <path id="p-11-12" d="M 140 132 L 290 132" />
+            <path id="p-12-13" d="M 390 132 L 540 132" />
+            
+            <!-- Link down to BEC Leaf -->
+            <path id="p-bec-link" d="M 640 165 L 640 200 L 140 200 L 140 240" />
+
+            <!-- Row 2 paths -->
+            <path id="p-21-22" d="M 140 272 L 290 272" />
+            <path id="p-22-23" d="M 390 272 L 540 272" />
+
+            <!-- Verification Loop back up -->
+            <path id="p-verify-loop" d="M 640 305 L 640 375 L 750 375 L 750 132 L 640 132" />
+
+            <!-- Row 3 revocation check -->
+            <path id="p-31-32" d="M 140 412 L 290 412" />
+            <path id="p-32-33" d="M 390 412 L 540 412" />
+        </svg>
+
+        <!-- Dynamic Labels -->
+        <div class="path-label" id="pl-sign-aia">AIA 證書授權</div>
+        <div class="path-label" id="pl-sign-bec">BEC 證書簽發</div>
+        <div class="path-label" id="pl-intercept">FFI 邊界攔截</div>
+        <div class="path-label" id="pl-check">O(1) 權限查表</div>
+        <div class="path-label" id="pl-verify">密碼學鏈式驗證</div>
+        <div class="path-label" id="pl-revoke">熱更新吊銷</div>
+
+        <!-- Box Nodes -->
+        <!-- Row 1 Nodes -->
+        <div class="box" id="b11">
+            <span>DROS Root CA</span>
+            <span class="badge" style="color:#5DADE2;">硬體信任錨 (TEE)</span>
+        </div>
+        <div class="box" id="b12">
+            <span>AIA 中介憑證機構</span>
+            <span class="badge" style="color:#F7DC6F;">企業安全金鑰 KMS</span>
+        </div>
+        <div class="box" id="b13">
+            <span>BEC 葉子憑證</span>
+            <span class="badge" style="color:#2ECC71;">Agent 執行證書</span>
+        </div>
+
+        <!-- Row 2 Nodes -->
+        <div class="box" id="b21">
+            <span>AI Agent 發起呼叫</span>
+            <span class="badge" style="color:#EC7063;">敏感 Tool Call / API</span>
+        </div>
+        <div class="box" id="b22">
+            <span>FFI 檢查哨哨口</span>
+            <span class="badge" style="color:#F1C40F;">VajraClaw 攔截哨</span>
+        </div>
+        <div class="box" id="b23">
+            <span>GuardVM 校驗引擎</span>
+            <span class="badge" style="color:#2ECC71;">O(1) 位元運算</span>
+        </div>
+
+        <!-- Row 3 Nodes -->
+        <div class="box" id="b31">
+            <span>微核心 RCU 狀態</span>
+            <span class="badge" style="color:#5DADE2;">原子 Epoch 指針</span>
+        </div>
+        <div class="box" id="b32">
+            <span>CRL / OCSP 吊銷清單</span>
+            <span class="badge" style="color:#EC7063;">位元圖動態更新</span>
+        </div>
+        <div class="box" id="b33">
+            <span>不可否認性審計證明</span>
+            <span class="badge" style="color:#2ECC71;">數位簽章存證 (.sig)</span>
+        </div>
+
+        <div class="footer">
+            <span>政策特徵：Ed25519 密碼學簽章鏈，Root 公鑰編譯期固化</span>
+            <span>效能指標：鏈式驗證 < 1 μs | OTA 吊銷熔斷更新 < 10 ms</span>
+        </div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="controls">
+        <button class="btn btn-primary" id="btn-next" onclick="nextStep()">下一階段 (Next Step)</button>
+        <button class="btn" id="btn-play" onclick="togglePlay()">自動播放 (Auto Play)</button>
+        <button class="btn" id="btn-reset" onclick="resetFlow()">重置 (Reset)</button>
+        <span style="font-size: 13.5px; color: #8A9BA8; margin-left: 20px;" id="step-number">當前步驟: 0 / 6</span>
+    </div>
+
+    <!-- Info Board -->
+    <div class="info-board">
+        <div class="info-title" id="info-header">
+            <span class="step-badge" id="info-badge">Step 0</span>
+            <span id="info-title-text">點擊「下一階段」開始演練</span>
+        </div>
+        <div class="info-desc" id="info-desc-zh">
+            歡迎使用 DROS PKI & CA 憑證鏈機制動畫演練。本動畫將展示 Root CA、AIA 中介憑證機構、BEC 葉子憑證的簽發關聯，以及在運行期如何進行無感極速校驗和動態 OTA 吊銷。
+        </div>
+        <div class="info-desc en" id="info-desc-en">
+            Welcome to the DROS PKI & CA Certificate Chain Flow Animator. This animation illustrates the relationship between Root CA, AIA Intermediate CA, and BEC Leaf Certificates, showing runtime verification and OTA revocation.
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        let autoPlayInterval = null;
+
+        const steps = [
+            {
+                title_zh: "第一階段：根憑證初始化與 TEE 硬體鎖定",
+                title_en: "Step 1: Root CA Bootstrapping & Hardware TEE Locking",
+                desc_zh: "整個信任鏈的起點。DROS Root CA 的私鑰被安全地封裝在晶片級可信執行環境 (TEE) 中，絕不外洩。對應的 Root 公鑰硬編碼固化在本地 GuardVM 微核心二進位中，建立物理信任根，防止惡意替換憑證鏈。",
+                desc_en: "The start of the trust chain. DROS Root CA private key is sealed in a hardware-level TEE or HSM. The Root public key is hardcoded into GuardVM during compile time, ensuring an immutable physical root of trust.",
+                active_boxes: ["b11"],
+                active_paths: [],
+                active_colors: { "b11": "active-blue" },
+                path_colors: {},
+                labels: []
+            },
+            {
+                title_zh: "第二階段：企業級 AIA 中介憑證簽發與授權",
+                title_en: "Step 2: AIA Intermediate CA Issuance & Authorization",
+                desc_zh: "Root CA 簽發企業級的 AIA 中介憑證，部署在安全金鑰管理系統 (KMS) 或雲端安全飛地中。AIA 繼承 Root CA 密碼學信用，負責針對具體執行單元簽發權限憑證。",
+                desc_en: "Root CA signs the enterprise-level AIA Intermediate CA Certificate, which is deployed in Key Management Services (KMS). The AIA inherits trust and is responsible for issuing leaf certificates.",
+                active_boxes: ["b12"],
+                active_paths: ["p-11-12"],
+                active_colors: { "b12": "active-orange" },
+                path_colors: { "p-11-12": "active-blue" },
+                labels: ["pl-sign-aia"]
+            },
+            {
+                title_zh: "第三階段：動態 BEC 葉子憑證簽發與綁定",
+                title_en: "Step 3: Dynamic BEC Leaf Certificate Sign & Bind",
+                desc_zh: "當 AI Agent 實體啟動或單次會話開啟時，AIA 動態簽發 BEC 葉子憑證。BEC 憑證與 Agent 代碼 Hash、UUID 強綁定，並內建了該 Agent 的 Capability Bitmap 權限位元圖與有限生命週期 (Lifetime)。",
+                desc_en: "Upon agent startup or session creation, AIA signs and issues the Binary Execution Certificate (BEC). The BEC leaf certificate is cryptographically bound to the agent's code hash, UUID, and capability bitmap.",
+                active_boxes: ["b13"],
+                active_paths: ["p-12-13", "p-bec-link"],
+                active_colors: { "b13": "active-green" },
+                path_colors: { "p-12-13": "active-orange", "p-bec-link": "active-green" },
+                labels: ["pl-sign-bec"]
+            },
+            {
+                title_zh: "第四階段：FFI 邊界攔截與二進位證書載入",
+                title_en: "Step 4: FFI Boundary Interception & BEC Token Extraction",
+                desc_zh: "運行期，AI Agent 嘗試調用敏感工具（如寫入檔案）。VajraClaw 攔截哨在二進位 FFI 邊界將其強制捕獲，並動態提取出 Agent 隨附的 BEC 憑證與調用上下文。",
+                desc_en: "At runtime, when the AI agent initiates a tool call, the VajraClaw checkpoint captures it at the FFI / C-ABI boundary and extracts the BEC token for identity validation.",
+                active_boxes: ["b21", "b22"],
+                active_paths: ["p-21-22"],
+                active_colors: { "b21": "active-red", "b22": "active-orange" },
+                path_colors: { "p-21-22": "active-red" },
+                labels: ["pl-intercept"]
+            },
+            {
+                title_zh: "第五階段：O(1) 點陣圖校驗與完整鏈式路徑認證",
+                title_en: "Step 5: O(1) Bitmap Check & Cryptographic Chain Audit",
+                desc_zh: "GuardVM 校驗引擎啟動。首先讀取 BEC 權限位元圖，利用 O(1) 常數時間進行位元 AND 運算判定是否授權。同時，在微秒級別內完成「BEC ──> AIA ──> Root CA」的完整鏈式路徑公鑰簽章驗證，確保憑證真實無改。",
+                desc_en: "GuardVM runs validation. It performs an O(1) bitwise AND check on the capability bitmap and verifies the full signature chain (BEC -> AIA -> Root CA) in microseconds using the hardcoded Root public key.",
+                active_boxes: ["b23"],
+                active_paths: ["p-22-23", "p-verify-loop"],
+                active_colors: { "b23": "active-green" },
+                path_colors: { "p-22-23": "active-yellow", "p-verify-loop": "active-green" },
+                labels: ["pl-check", "pl-verify"]
+            },
+            {
+                title_zh: "第六階段：動態證書吊銷與 RCU 原子熱切換",
+                title_en: "Step 6: Dynamic Certificate Revocation & RCU Hot-Swap",
+                desc_zh: "一旦監測到 Agent 密鑰洩漏，AIA 將發布吊銷點陣圖。GuardVM 通過無鎖 RCU (Read-Copy-Update) 機制，在 10 毫秒內原子級切換 Epoch 指針，即刻撤銷授權並物理熔斷，最後將事件記錄為不可否認簽章存證。",
+                desc_en: "If key leakage is detected, AIA issues a revocation bitmap. GuardVM receives the update, triggers a lock-free RCU atomic pointer swap within 10ms, instantly blocking the agent, and signs the audit log.",
+                active_boxes: ["b31", "b32", "b33"],
+                active_paths: ["p-31-32", "p-32-33"],
+                active_colors: { "b31": "active-blue", "b32": "active-red", "b33": "active-green" },
+                path_colors: { "p-31-32": "active-red", "p-32-33": "active-green" },
+                labels: ["pl-revoke"]
+            }
+        ];
+
+        function resetFlow() {
+            currentStep = 0;
+            updateUI();
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                document.getElementById('btn-play').textContent = "自動播放 (Auto Play)";
+            }
+        }
+
+        function nextStep() {
+            if (currentStep < steps.length) {
+                currentStep++;
+            } else {
+                currentStep = 1; // loop
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            // Reset all boxes and paths
+            document.querySelectorAll('.box').forEach(b => {
+                b.className = 'box';
+            });
+            document.querySelectorAll('svg.connections path').forEach(p => {
+                p.className.baseVal = '';
+            });
+            document.querySelectorAll('.path-label').forEach(l => {
+                l.classList.remove('active');
+            });
+
+            document.getElementById('step-number').textContent = `當前步驟: ${currentStep} / ${steps.length}`;
+
+            if (currentStep === 0) {
+                document.getElementById('info-badge').textContent = "Step 0";
+                document.getElementById('info-title-text').textContent = "點擊「下一階段」開始演練";
+                document.getElementById('info-desc-zh').textContent = "歡迎使用 DROS PKI & CA 憑證鏈機制動畫演練。本動畫將展示 Root CA、AIA 中介憑證機構、BEC 葉子憑證的簽發關聯，以及在運行期如何進行無感極速校驗和動態 OTA 吊銷。";
+                document.getElementById('info-desc-en').textContent = "Welcome to the DROS PKI & CA Certificate Chain Flow Animator. This animation illustrates the relationship between Root CA, AIA Intermediate CA, and BEC Leaf Certificates, showing runtime verification and OTA revocation.";
+                return;
+            }
+
+            const step = steps[currentStep - 1];
+
+            // Set Title & Badge
+            document.getElementById('info-badge').textContent = `Step ${currentStep}`;
+            document.getElementById('info-title-text').textContent = step.title_zh;
+            document.getElementById('info-desc-zh').textContent = step.desc_zh;
+            document.getElementById('info-desc-en').textContent = step.desc_en;
+
+            // Highlight Active Boxes from CURRENT step
+            Object.keys(step.active_colors).forEach(boxId => {
+                const colorClass = step.active_colors[boxId];
+                document.getElementById(boxId).classList.add(colorClass);
+            });
+
+            // Highlight Active Paths from CURRENT step
+            Object.keys(step.path_colors).forEach(pathId => {
+                const pathColor = step.path_colors[pathId];
+                document.getElementById(pathId).className.baseVal = pathColor;
+            });
+
+            // Show labels
+            step.labels.forEach(labelId => {
+                document.getElementById(labelId).classList.add('active');
+            });
+
+            // Make cumulative highlights to show progress
+            for (let i = 0; i < currentStep - 1; i++) {
+                const prevStep = steps[i];
+                Object.keys(prevStep.active_colors).forEach(boxId => {
+                    const colorClass = prevStep.active_colors[boxId];
+                    if (!document.getElementById(boxId).classList.contains(colorClass)) {
+                        document.getElementById(boxId).classList.add(colorClass);
+                    }
+                });
+                Object.keys(prevStep.path_colors).forEach(pathId => {
+                    const pathColor = prevStep.path_colors[pathId];
+                    document.getElementById(pathId).className.baseVal = pathColor;
+                });
+                prevStep.labels.forEach(labelId => {
+                    document.getElementById(labelId).classList.add('active');
+                });
+            }
+        }
+
+        function togglePlay() {
+            const btn = document.getElementById('btn-play');
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                btn.textContent = "自動播放 (Auto Play)";
+            } else {
+                nextStep();
+                autoPlayInterval = setInterval(() => {
+                    if (currentStep === steps.length) {
+                        resetFlow();
+                        nextStep();
+                    } else {
+                        nextStep();
+                    }
+                }, 4000); // 4 seconds per step
+                btn.textContent = "暫停播放 (Pause)";
+            }
+        }
+
+        // Initialize UI
+        updateUI();
+    </script>
+</body>
+</html>

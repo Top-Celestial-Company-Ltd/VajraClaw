@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DROS Multi-Agent Concurrency & Skill Verification Flow</title>
+    <style>
+        body {
+            background-color: #0E161B;
+            color: #E2E8F0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .canvas-container {
+            width: 800px;
+            height: 600px;
+            background-color: #152026;
+            border-radius: 12px;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #1F2E38;
+            overflow: hidden;
+        }
+
+        .header {
+            width: 760px;
+            height: 40px;
+            background-color: #1A252C;
+            border-radius: 6px;
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            padding-left: 20px;
+            box-sizing: border-box;
+            border-left: 4px solid #2ECC71;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: #FFFFFF;
+        }
+
+        .col-title {
+            position: absolute;
+            font-size: 11px;
+            color: #8A9BA8;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .ct1 { left: 40px; top: 70px; }
+        .ct2 { left: 320px; top: 70px; }
+        .ct3 { left: 580px; top: 70px; }
+
+        svg.connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 800px;
+            height: 600px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        svg.connections path {
+            fill: none;
+            stroke: #24333D;
+            stroke-width: 2;
+            stroke-dasharray: 5 4;
+            transition: all 0.5s ease;
+        }
+
+        svg.connections path.active-green {
+            stroke: #2ECC71;
+            stroke-width: 3;
+            animation: march 0.8s linear infinite;
+        }
+
+        svg.connections path.active-red {
+            stroke: #E74C3C;
+            stroke-width: 3;
+            animation: march 0.8s linear infinite;
+        }
+
+        svg.connections path.active-blue {
+            stroke: #3498DB;
+            stroke-width: 2.5;
+            animation: march 0.8s linear infinite;
+        }
+
+        @keyframes march { to { stroke-dashoffset: -9; } }
+
+        .box {
+            position: absolute;
+            background-color: #1B2B34;
+            border: 2px solid #2C3E50;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-sizing: border-box;
+            z-index: 2;
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            font-size: 10.5px;
+            line-height: 1.4;
+            color: #E2E8F0;
+        }
+
+        .box .badge {
+            font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 1px 5px;
+            border-radius: 4px;
+            margin-top: 3px;
+            background-color: #24333D;
+            color: #8A9BA8;
+        }
+
+        /* Active states */
+        .box.active-blue {
+            border-color: #3498DB;
+            background-color: #1A364A;
+            box-shadow: 0 0 12px rgba(52,152,219,0.4);
+            transform: scale(1.03);
+        }
+        .box.active-blue .badge { background-color: #2980B9; color: #FFF; }
+
+        .box.active-yellow {
+            border-color: #F1C40F;
+            background-color: #3E3B1E;
+            box-shadow: 0 0 12px rgba(241,196,15,0.4);
+            transform: scale(1.03);
+        }
+        .box.active-yellow .badge { background-color: #D4AC0D; color: #FFF; }
+
+        .box.active-purple {
+            border-color: #9B59B6;
+            background-color: #3B2044;
+            box-shadow: 0 0 12px rgba(155,89,182,0.4);
+            transform: scale(1.03);
+        }
+        .box.active-purple .badge { background-color: #8E44AD; color: #FFF; }
+
+        .box.active-green {
+            border-color: #2ECC71;
+            background-color: #1D3D2C;
+            box-shadow: 0 0 15px rgba(46,204,113,0.5);
+        }
+        .box.active-green .badge { background-color: #27AE60; color: #FFF; }
+
+        .box.active-red {
+            border-color: #E74C3C;
+            background-color: #4A2724;
+            box-shadow: 0 0 15px rgba(231,76,60,0.5);
+            animation: shake 0.5s;
+        }
+        .box.active-red .badge { background-color: #C0392B; color: #FFF; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+
+        /* Positions */
+        #a1 { left: 40px; top: 100px; width: 200px; height: 75px; }
+        #a2 { left: 40px; top: 235px; width: 200px; height: 75px; }
+        #a3 { left: 40px; top: 370px; width: 200px; height: 75px; }
+
+        #gvm { left: 300px; top: 180px; width: 200px; height: 200px; font-size: 11px; }
+
+        #t1 { left: 560px; top: 90px; width: 200px; height: 65px; }
+        #t2 { left: 560px; top: 185px; width: 200px; height: 65px; }
+        #t3 { left: 560px; top: 280px; width: 200px; height: 65px; }
+        #t4 { left: 560px; top: 375px; width: 200px; height: 65px; }
+
+        .footer {
+            position: absolute;
+            bottom: 12px;
+            left: 40px;
+            right: 40px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 9.5px;
+            color: #627380;
+            border-top: 1px solid #1F2E38;
+            padding-top: 8px;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn {
+            background-color: #1F2E38;
+            border: 1px solid #34495E;
+            color: #E2E8F0;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #34495E;
+            border-color: #3498DB;
+        }
+        .btn-primary {
+            background-color: #1A364A;
+            border-color: #2980B9;
+        }
+        .btn-primary:hover {
+            background-color: #2980B9;
+        }
+
+        .info-board {
+            width: 800px;
+            background-color: #152026;
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 12px;
+            box-sizing: border-box;
+            border: 1px solid #1F2E38;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .info-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #2ECC71;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .info-title .step-badge {
+            background-color: #2ECC71;
+            color: #0E161B;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 9.5px;
+            font-weight: bold;
+        }
+
+        .info-desc {
+            font-size: 12px;
+            line-height: 1.5;
+            color: #E2E8F0;
+        }
+        .info-desc.en {
+            color: #8A9BA8;
+            border-top: 1px dashed #1F2E38;
+            padding-top: 6px;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="canvas-container" id="capture-area">
+        <div class="header">
+            <h1 id="main-title">DROS 運行期多智能體併發與技能校驗流程 (Multi-Agent Concurrency & Skill Verification)</h1>
+        </div>
+
+        <div class="col-title ct1">Concurrent AI Agents</div>
+        <div class="col-title ct2">VajraClaw Interceptor</div>
+        <div class="col-title ct3">Target Systems</div>
+
+        <svg class="connections">
+            <!-- Agent 1 to GVM -->
+            <path id="l-a1-gvm1" d="M 240 137 L 300 210" />
+            <path id="l-a1-gvm2" d="M 240 137 L 300 230" />
+            
+            <!-- Agent 2 to GVM -->
+            <path id="l-a2-gvm1" d="M 240 272 L 300 260" />
+            <path id="l-a2-gvm2" d="M 240 272 L 300 290" />
+            
+            <!-- Agent 3 to GVM -->
+            <path id="l-a3-gvm1" d="M 240 407 L 300 320" />
+            <path id="l-a3-gvm2" d="M 240 407 L 300 350" />
+            <path id="l-a3-gvm3" d="M 240 407 L 300 370" />
+
+            <!-- GVM to Tools -->
+            <!-- DB Tool -->
+            <path id="l-gvm-t1" d="M 500 230 L 560 122" />
+            <!-- Python Sandbox -->
+            <path id="l-gvm-t2" d="M 500 260 L 560 217" />
+            <!-- System Config -->
+            <path id="l-gvm-t3" d="M 500 290 L 560 312" />
+            <!-- Slack API -->
+            <path id="l-gvm-t4" d="M 500 350 L 560 407" />
+        </svg>
+
+        <!-- Left Column: Agents -->
+        <div class="box" id="a1">
+            <strong>Finance Agent (財務)</strong>
+            <span>BEC Cert: 0x03</span>
+            <span class="badge">Read DB, Python Calc</span>
+        </div>
+        <div class="box" id="a2">
+            <strong>Admin Agent (管理)</strong>
+            <span>BEC Cert: 0x0E</span>
+            <span class="badge">Write DB, Read, Config</span>
+        </div>
+        <div class="box" id="a3">
+            <strong>Support Agent (客服)</strong>
+            <span>BEC Cert: 0x09</span>
+            <span class="badge">Read DB, Slack Msg</span>
+        </div>
+
+        <!-- Center: GuardVM -->
+        <div class="box" id="gvm">
+            <strong>GuardVM Core</strong>
+            <span class="badge" style="background-color:#27AE60; color:#FFF;">O(1) Bitwise Engine</span>
+            <p style="margin:8px 0; font-size:9.5px; line-height:1.3; color:#8A9BA8;">
+                Bitwise Check:<br>
+                Req_Bit & BEC.Bitmap<br>
+                Lock-Free Verification
+            </p>
+        </div>
+
+        <!-- Right: Tools -->
+        <div class="box" id="t1">
+            <strong>SQL Database</strong>
+            <span class="badge">DB Read/Write</span>
+        </div>
+        <div class="box" id="t2">
+            <strong>Python Sandbox</strong>
+            <span class="badge">Code Execution</span>
+        </div>
+        <div class="box" id="t3">
+            <strong>System Config</strong>
+            <span class="badge">Modify System Config</span>
+        </div>
+        <div class="box" id="t4">
+            <strong>Slack Notification API</strong>
+            <span class="badge">Post Message</span>
+        </div>
+
+        <div class="footer">
+            <span>Policy Specs: BEC Leaf Certificate, Lock-Free RCU Epoch State Management</span>
+            <span>Performance: Concurrent Interception & Verification < 1 μs | Isolation Zero Overhead</span>
+        </div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="controls">
+        <button class="btn btn-primary" id="btn-next" onclick="nextStep()">下一階段 (Next Step)</button>
+        <button class="btn" id="btn-play" onclick="togglePlay()">自動播放 (Auto Play)</button>
+        <button class="btn" id="btn-reset" onclick="resetFlow()">重置 (Reset)</button>
+        <span style="font-size: 13px; color: #8A9BA8; margin-left: 20px;" id="step-number">當前步驟: 0 / 4</span>
+    </div>
+
+    <!-- Info Board -->
+    <div class="info-board">
+        <div class="info-title" id="info-header">
+            <span class="step-badge" id="info-badge">Step 0</span>
+            <span id="info-title-text">點擊「下一階段」開始併發校驗演練</span>
+        </div>
+        <div class="info-desc" id="info-desc-zh">
+            歡迎使用 DROS VajraAgent 多智能體併發與技能查表機制動畫。本演練展示在多任務併發環境下，DROS 如何利用 Capability Bitmap 位元運算對多個異構 Agent 發起的 Tool Call 進行併發攔截與物理熔斷。
+        </div>
+        <div class="info-desc en" id="info-desc-en">
+            Welcome to the DROS VajraAgent Multi-Agent Concurrency & Skill Verification flow animator. This demonstrates how DROS uses Capability Bitmaps and bitwise AND logic to intercept and verify concurrent agent requests.
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        let autoPlayInterval = null;
+
+        const steps = [
+            {
+                title_zh: "第一階段：多智能體併發請求 (Concurrent Requests)",
+                title_en: "Step 1: Concurrent Agent Requests & Call Launch",
+                desc_zh: "多個 Agent 執行緒並行啟動工具呼叫：財務 Agent 發起 Database 與 Python 執行請求；管理 Agent 發起 Database 與系統設定修改；客服 Agent 發起 Database、Slack 通知、以及越權的 Python 沙箱請求。",
+                desc_en: "Multiple Agent threads concurrently initiate tool calls: Finance Agent requests Database and Python exec; Admin Agent requests Database and System config; Support Agent requests Database, Slack notifications, and a violating Python execution.",
+                active_boxes: ["a1", "a2", "a3"],
+                active_paths: ["l-a1-gvm1", "l-a1-gvm2", "l-a2-gvm1", "l-a2-gvm2", "l-a3-gvm1", "l-a3-gvm2", "l-a3-gvm3"],
+                active_colors: { "a1": "active-blue", "a2": "active-yellow", "a3": "active-purple" },
+                path_colors: {
+                    "l-a1-gvm1": "active-blue", "l-a1-gvm2": "active-blue",
+                    "l-a2-gvm1": "active-blue", "l-a2-gvm2": "active-blue",
+                    "l-a3-gvm1": "active-blue", "l-a3-gvm2": "active-blue", "l-a3-gvm3": "active-blue"
+                }
+            },
+            {
+                title_zh: "第二階段：FFI 邊界攔截與憑證載入 (FFI Interception)",
+                title_en: "Step 2: FFI Boundary Interception & BEC Extraction",
+                desc_zh: "DROS VajraClaw 攔截哨在二進位邊界（C-ABI）並行捕獲所有呼叫，從執行緒上下文中提取出各個 Agent 隨附的 BEC 憑證與 Capability Bitmap 位元圖。",
+                desc_en: "DROS VajraClaw interceptor captures all tool calls concurrently at the binary FFI boundary, extracting the BEC leaf certificates and capability bitmaps from the running threads.",
+                active_boxes: ["gvm"],
+                active_paths: ["l-a1-gvm1", "l-a1-gvm2", "l-a2-gvm1", "l-a2-gvm2", "l-a3-gvm1", "l-a3-gvm2", "l-a3-gvm3"],
+                active_colors: { "gvm": "active-blue" },
+                path_colors: {
+                    "l-a1-gvm1": "active-blue", "l-a1-gvm2": "active-blue",
+                    "l-a2-gvm1": "active-blue", "l-a2-gvm2": "active-blue",
+                    "l-a3-gvm1": "active-blue", "l-a3-gvm2": "active-blue", "l-a3-gvm3": "active-blue"
+                }
+            },
+            {
+                title_zh: "第三階段：O(1) 位元運算查表校驗 (Bitwise Matching)",
+                title_en: "Step 3: O(1) Bitwise Skill Verification",
+                desc_zh: "GuardVM 校驗核進行常數時間的併發查表校驗：財務 Agent 與管理 Agent 的所有請求、以及客服 Agent 的 DB/Slack 請求均驗證通過；客服 Agent 呼叫 Python 沙箱（BEC中無對應位元）判定為越權违規！",
+                desc_en: "GuardVM performs constant-time concurrent matching: All requests from Finance and Admin, and Support Agent's DB/Slack requests are authorized. Support Agent's Python Sandbox request has its bit disabled and is flagged as a violation.",
+                active_boxes: ["gvm", "t1", "t2", "t3", "t4"],
+                active_paths: ["l-gvm-t1", "l-gvm-t2", "l-gvm-t3", "l-gvm-t4"],
+                active_colors: { "gvm": "active-green", "t1": "active-green", "t3": "active-green", "t4": "active-green", "t2": "active-red" },
+                path_colors: { "l-gvm-t1": "active-green", "l-gvm-t3": "active-green", "l-gvm-t4": "active-green", "l-gvm-t2": "active-red" }
+            },
+            {
+                title_zh: "第四階段：審計記錄與單體精確熱更新 (Audit & Revocation)",
+                title_en: "Step 4: Audit Trails & Single-Agent Revocation",
+                desc_zh: "合法調用成功執行；违規調用被 Fail-Closed 即時阻斷，系統記錄 SHA-256 密碼學證據鏈。同時，AIA 發布吊銷指令，藉由 RCU 原子 Epoch 熱更新，在 10ms 內對违規 Agent 完成單體隔離，其餘 Agent 繼續併發運行。",
+                desc_en: "Valid calls execute successfully; the violating call is blocked and logged in the non-repudiation log. AIA issues a revocation update, executing a lock-free RCU swap within 10ms to isolate the single Support Agent without blocking others.",
+                active_boxes: ["a3", "t2"],
+                active_paths: ["l-gvm-t2"],
+                active_colors: { "a3": "active-red", "t2": "active-red" },
+                path_colors: { "l-gvm-t2": "active-red" }
+            }
+        ];
+
+        function resetFlow() {
+            currentStep = 0;
+            updateUI();
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                document.getElementById('btn-play').textContent = "自動播放 (Auto Play)";
+            }
+        }
+
+        function nextStep() {
+            if (currentStep < steps.length) {
+                currentStep++;
+            } else {
+                currentStep = 1;
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            // Reset
+            document.querySelectorAll('.box').forEach(b => {
+                b.className = 'box';
+            });
+            document.querySelectorAll('svg.connections path').forEach(p => {
+                p.className.baseVal = '';
+            });
+
+            document.getElementById('step-number').textContent = `當前步驟: ${currentStep} / ${steps.length}`;
+
+            if (currentStep === 0) {
+                document.getElementById('info-badge').textContent = "Step 0";
+                document.getElementById('info-title-text').textContent = "點擊「下一階段」開始併發校驗演練";
+                document.getElementById('info-desc-zh').textContent = "歡迎使用 DROS VajraAgent 多智能體併發與技能查表機制動畫。本演練展示在多任務併發環境下，DROS 如何利用 Capability Bitmap 位元運算對多個異構 Agent 發起的 Tool Call 進行併發攔截與物理熔斷。";
+                document.getElementById('info-desc-en').textContent = "Welcome to the DROS VajraAgent Multi-Agent Concurrency & Skill Verification flow animator. This demonstrates how DROS uses Capability Bitmaps and bitwise AND logic to intercept and verify concurrent agent requests.";
+                return;
+            }
+
+            const step = steps[currentStep - 1];
+            document.getElementById('info-badge').textContent = `Step ${currentStep}`;
+            document.getElementById('info-title-text').textContent = step.title_zh;
+            document.getElementById('info-desc-zh').textContent = step.desc_zh;
+            document.getElementById('info-desc-en').textContent = step.desc_en;
+
+            // Highlight Active Boxes from CURRENT step
+            Object.keys(step.active_colors).forEach(boxId => {
+                const colorClass = step.active_colors[boxId];
+                document.getElementById(boxId).classList.add(colorClass);
+            });
+
+            // Highlight Active Paths from CURRENT step
+            Object.keys(step.path_colors).forEach(pathId => {
+                const pathColor = step.path_colors[pathId];
+                document.getElementById(pathId).className.baseVal = pathColor;
+            });
+
+            // Cumulative highlights of completed states
+            for (let i = 0; i < currentStep - 1; i++) {
+                const prevStep = steps[i];
+                Object.keys(prevStep.active_colors).forEach(boxId => {
+                    const colorClass = prevStep.active_colors[boxId];
+                    if (!document.getElementById(boxId).classList.contains(colorClass)) {
+                        document.getElementById(boxId).classList.add(colorClass);
+                    }
+                });
+                Object.keys(prevStep.path_colors).forEach(pathId => {
+                    const pathColor = prevStep.path_colors[pathId];
+                    if (document.getElementById(pathId).className.baseVal === '') {
+                        document.getElementById(pathId).className.baseVal = pathColor;
+                    }
+                });
+            }
+        }
+
+        function togglePlay() {
+            const btn = document.getElementById('btn-play');
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                btn.textContent = "自動播放 (Auto Play)";
+            } else {
+                nextStep();
+                autoPlayInterval = setInterval(() => {
+                    if (currentStep === steps.length) {
+                        resetFlow();
+                        nextStep();
+                    } else {
+                        nextStep();
+                    }
+                }, 4000);
+                btn.textContent = "暫停播放 (Pause)";
+            }
+        }
+
+        updateUI();
+    </script>
+</body>
+</html>
