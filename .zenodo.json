@@ -1,0 +1,22 @@
+{
+  "title": "VajraClaw: The Ultimate Commercial Adapter & Physical-Layer Guard for DROS",
+  "description": "VajraClaw is a physical-layer security guard and commercial integration adapter for the Dharma Reasoning Operating System (DROS), enforcing hardware-level constraints, secure RPC boundaries, and cryptographic verification for agentic web workflows.",
+  "creators": [
+    {
+      "name": "Chen, Jui-Cheng (Jimmy)",
+      "affiliation": "Top Celestial Company Ltd.",
+      "orcid": ""
+    }
+  ],
+  "access_right": "open",
+  "license": "cc-by-nc-sa-4.0",
+  "keywords": [
+    "VajraClaw",
+    "DROS",
+    "Physical Layer Security",
+    "Hardware Guard",
+    "Agentic Web",
+    "Cryptographic Verification",
+    "Security Adapter"
+  ]
+}
