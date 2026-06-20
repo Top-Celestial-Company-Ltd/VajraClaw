@@ -61,3 +61,13 @@ Why did the attack fail instantly?
 
 > **Ready for Production?**
 > Upgrade to **VajraClaw+ (Startup)** for Ed25519 Cryptographic Policy Signatures and High-Availability Epoch locks, or adopt **VajraAgent (Enterprise)** to deploy this protection across your entire microservice mesh with zero-code changes.
+
+---
+
+## 📚 Publications & Prior Art
+
+To establish legal and academic prior art (preventing malicious patent claims on our core technologies), the theoretical foundations and architectures of the Vajra system have been officially anchored on **Zenodo** with permanent cryptographic timestamps:
+
+*   **VajraClaw Infrastructure**: *DROS for Shielding Prompt Contamination and Hallucination: Runtime Governance Infrastructure for VajraAgent and VajraClaw* — [10.5281/zenodo.20776374](https://doi.org/10.5281/zenodo.20776374)
+*   **Zero-Trust Identity**: *Execution Identity in Multi-Agent Systems: A Zero-Trust Runtime Governance Architecture* — [10.5281/zenodo.20775794](https://doi.org/10.5281/zenodo.20775794) (Co-anchored with DROS)
+
