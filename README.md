@@ -1,4 +1,8 @@
-# 🛡️ VajraClaw - Absolute Control Over AI Execution
+# ⚡ VajraClaw - Absolute Control Over AI Execution
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20764732.svg)](https://doi.org/10.5281/zenodo.20764732)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![Core Engine](https://img.shields.io/badge/Powered%20By-DROS%20v7.3-purple.svg)](https://github.com/Top-Celestial-Company-Ltd/Dharma-Reasoning-Operating-System)
 
 VajraClaw is an invisible, military-grade security infrastructure for AI Agents. 
 It operates completely outside of the LLM space, sitting physically between the Agent's reasoning engine and your enterprise operating system.
