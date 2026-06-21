@@ -17,6 +17,8 @@
 9. [Q9: DROS 如何協助企業對接歐盟人工智慧法案 (EU AI Act)？有哪些明確的法律條款對照？](#q9-dros-如何協助企業對接歐盟人工智慧法案-eu-ai-act有哪些明確的法律條款對照)
 10. [Q10: DROS / VajraClaw 是無狀態 (Stateless) 的，那我們怎麼知道它有沒有正常運行？有沒有當掉或『忘記執行』？](#q10-dros--vajraclaw-是無狀態-stateless-的那我們怎麼知道它有沒有正常運行有沒有當掉或忘記執行)
 11. [Q11: 在沒有中央控制台的單機版（VajraClaw、VajraClaw+）環境中，管理員該如何查看日誌？需要自己去翻找資料夾嗎？](#q11-在沒有中央控制台的單機版環境中管理員該如何查看日誌需要自己去翻找資料夾嗎)
+12. [Q12: DROS L1 ATR 語意清毒與 L2 Vajra 執行期合約在防範 AI 攻擊與安全治理的定位有何不同？我該如何設定與配合使用？](#q12-dros-l1-atr-語意清毒與-l2-vajra-執行期合約在防範-ai-攻擊與安全治理的定位有何不同我該如何設定與配合使用)
+13. [Q13: DROS 能夠防止所有的 AI 攻擊嗎？DROS 的明確保障邊界 (Formal Boundary Definition) 與極限是什麼？](#q13-dros-能夠防止所有的-ai-攻擊嗎dros-的明確保障邊界-formal-boundary-definition-與極限是什麼)
 
 ---
 
@@ -231,4 +233,43 @@ DROS 設計了三重複雜的主動防護與可觀測性機制，確保安全網
 
 3. **無縫對接開源日誌收集器**：
    * 由於日誌輸出是標準的單行 JSON 格式，開發者可以非常輕易地用開源的 Filebeat、Vector 或 FluentBit 收集這些日誌，直接打入企業現有的 ELK 或 Grafana Loki 中，無需任何二次開發。
+
+---
+
+### Q12: DROS L1 ATR 語意清毒與 L2 Vajra 執行期合約在防範 AI 攻擊與安全治理的定位有何不同？我該如何設定與配合使用？
+
+*   **系統定位：雷達 vs. 煞車系統**
+    *   **L1 ATR (Agent Threat Rules) 是雷達（Pluggable Radar）**：其核心任務是在外部輸入（如 User Query 或 RAG Context）抵達 LLM 之前進行特徵清洗與過濾。它能有效排除已知的惡意 Prompt Injection (T001) 與間接上下文污染 (T002)，降低模型被誤導的機率。
+    *   **L2 Vajra Contract 是煞車與防火牆（Enforcement Firewall）**：不論 LLM 腦袋最後想出什麼，一旦它試圖執行未授權的敏感工具（T003）或讀取越界資源，VajraClaw 將在 FFI/ABI 物理邊界將其強制熔斷。
+*   **實戰設定指引 (DrosGuard SDK)**：
+    僅需兩行代碼即可在您的 Agent Workflow 中同時啟動這兩層防線：
+    ```python
+    from dros_sdk import DrosGuard
+
+    # 初始化 DrosGuard（自動加載本地 Vajra 合約與 pluggable ATR 規則）
+    guard = DrosGuard(contract_path="vajra_finance_auditor.yaml")
+
+    # 1. 於入口處掛載 L1 語意清毒 (過濾 T001/T002 威脅)
+    guard.check_query(user_query)
+
+    # 2. 於工具執行前掛載 L2 物理阻斷 (控制 T003-T007 越權執行)
+    guard.check_tool_execution(tool_name)
+    guard.check_resource_access(target_path)
+    ```
+
+---
+
+### Q13: DROS 能夠防止所有的 AI 攻擊嗎？DROS 的明確保障邊界 (Formal Boundary Definition) 與極限是什麼？
+
+**不能，且 DROS 刻意不去做通用型的 AI 價值對齊。我們提供的是底層執行邊界的「確定性保證 (Deterministic Guarantees)」，而非不確定性的語意護欄。**
+
+#### 1. DROS 承諾提供的安全性保證 (What DROS Guarantees)
+*   **執行授權強制性 (Execution Authorization)**：任何工具或 Syscall 呼叫，在 C-FFI 邊界必須符合當前 Vajra 合約白名單，越授權必遭物理熔斷 (`SIGKILL`)。
+*   **身分不可否認性 (Identity Verification)**：智能體間調用鏈以加密 BEC Chain 憑證進行身分校驗，防止偽造與混淆代理人。
+*   **審計完整性 (Audit Integrity)**：產生符合 NIST OSCAL 標準的結構化防篡改審計日誌。
+
+#### 2. DROS 不予保證的防區邊界 (What DROS Does Not Guarantee)
+*   **語意正確性 (Semantic Correctness)**：DROS 不干預或修正 LLM 回答的邏輯正確度。
+*   **模型對齊 (Model Alignment)**：DROS 不干涉模型的偏見、幻覺或道德審查。
+*   **幻覺放行**：若 LLM 產生胡言亂語（幻覺），但其並未調用任何超出合約授權的工具或路徑，DROS 將保持放行。這極大地降低了系統的誤報率 (FPR < 2%)。
 

@@ -226,6 +226,14 @@ rules:
 *   **質疑**：DROS 提及的概念在 eBPF、SPIFFE、OPA 中皆有類似進展，DROS 是否只是現有技術的重組？
 *   **防禦與權衡**：如同 Docker 並未發明 Linux Namespace，Kubernetes 並未發明 Container，重構架構並解決現有技術之間的斷層（Gap）是極具產業價值的**合成創新 (Synthesizing Innovation)**。SPIFFE 有身份但無法強制執法；eBPF 能攔截但對 Agent 語境盲目 (Context-Blind)；OPA 有策略但解析過慢。DROS 的核心價值是填補這層 **Missing Layer**：將身份語境壓縮為高性能位元矩陣，卡在二進位 FFI 邊界執行，專為 Agentic Web 提供標準化的實體憑證標準。
 
+### 6. 關於「DROS 防禦對 AI 攻擊（如語意對齊、幻覺）之局限與明確防護邊界」之應對
+
+*   **質疑**：DROS 是否能防範所有的 AI 攻擊？例如大模型的偏見、幻覺（Hallucination）或不對齊的錯誤語意輸出？
+*   **防禦與權衡**：**DROS 拒絕進行通用型的語意與道德審查——這是刻意的工程解耦設計。** DROS 的核心哲學是提供底層執行期邊界的「確定性保證 (Deterministic Guarantees)」，而非不確定性的語意護欄。
+    *   **DROS 核心保證**：1) 執行授權強制性 (FFI-level 物理阻斷)；2) 密碼學身分不可否認性 (BEC 憑證鏈)；3) 審計完整性 (OSCAL 合規日誌)。
+    *   **DROS 不予保證防區**：不干涉模型語意正確性、不執行模型對齊審查、不攔截未觸發越權行為的純文字幻覺。這確保了系統誤報率 (FPR) 低於 2%。
+    此外，DROS 將 L1 語意過濾定位為**可插拔威脅情資適配器 (Pluggable Threat Intelligence Adapters)**。L1 ATR 語意引擎作為其中一個預警適配器，其核心角色是雷達 (Radar)，用以在輸入端預過濾已知威脅、降低系統資源消耗；而 DROS 核心 (GuardVM) 則是防火牆與煞車系統。即使在 L1 語意預警因為極端 Adaptive 攻擊漏報時，L2 FFI 合約實體邊界與 L3 密碼學憑證校驗依然能發揮物理熔斷與身分校阻斷作用，從而避免了系統核心陷入非確定性語意攻防的「軍備競賽」中。
+
 ---
 
 ## 十、 先前技術聲明（Prior Art & FTO）

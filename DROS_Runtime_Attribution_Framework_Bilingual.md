@@ -63,7 +63,6 @@ Before exploring DROS's solution, we must clarify DROS's unique niche in the ent
 *   **Collaboration with Cloud Identity Attribution Platforms (e.g., Permiso Security)**: Excellent solutions like Permiso perform exceptionally well in behavioral monitoring, identity graphs, and incident response in cloud environments. DROS serves as a perfect low-level complement, supplying the FFI/C-ABI enforcement interception capability and the $\mathcal{O}(1)$ cryptographic credential closed loop on the Edge.
 *   **與應用層治理框架（如 Microsoft Agent Governance Toolkit）的協同**：微軟等大廠為應用層提供了強大的治理工具包與加密身份支援。DROS 則不綁定任何單一雲端生態，作為一個**中立的執行層信任基礎設施**，為這些上層框架提供了一個跨越 OS、跨越設備、不受 Vendor Lock-in 限制的實體最後防線。
 
-![圖 1：DROS 執行期安全分層與 FFI/C-ABI 邊界攔截架構](DROS_Visual_Assets/dros_defense_layers_zh.png)
 ![Figure 1: DROS Runtime Security Layers and FFI/C-ABI Boundary Interception](DROS_Visual_Assets/dros_defense_layers_en.png)
 
 
@@ -94,7 +93,6 @@ DROS's PKI system adopts a rigorous three-tier certificate chain model, achievin
     *   **安全防護**：私鑰被安全地封裝在硬體級安全晶片或 HSM (硬體安全模組) / 晶片級可信執行環境 (TEE) 中，絕不外洩。
     *   **職責**：負責簽發並認證下屬的 AIA 憑證，並將對應的 Root 公鑰硬編碼於微核心或本地 GuardVM 中，建立不可篡改的物理信任根。
 
-![圖 2：DROS Agent 三級憑證鏈金鑰管理架構](DROS_Visual_Assets/dros_pki_chain_zh.png)
 ![Figure 2: DROS Agent Three-Tier Certificate Chain Key Management](DROS_Visual_Assets/dros_pki_chain_en.png)
 
 
@@ -144,20 +142,31 @@ In a dynamic Agentic collaboration network, certificate issuance and invalidatio
 *   **AOT Static Certificate Compilation**: Prior to deployment, the DROS compiler (Vajra Compiler) translates authorization policies into lightweight AOT certificate structures, compressing complex permission claims into a cryptographic bitmap.
 *   **動態 OTA 吊銷與熱更新**：當某個 Agent 實體被檢測出行為異常或金鑰洩漏時，控制面將透過 AIA 即時發布憑證吊銷資訊（類似輕量化 CRL 或 OCSP 點陣圖）。DROS 微核心利用 **Epoch 鎖定與 RCU (Read-Copy-Update) 機制**，在不中斷其他正常 Agent 運行的前提下，於 10 毫秒內將吊銷狀態熱更新至本地 GuardVM，完成物理熔斷，確保失控的 Agent 瞬間失去所有敏感 API 與系統工具的存取權限。
 
-![圖 3：AIA 動態證書簽發與 Epoch 熔斷/熱更新生命週期流](DROS_Visual_Assets/dros_lifecycle_flow_zh.png)
 ![Figure 3: AIA Dynamic Certificate Issuance and Revocation Lifecycle Flow](DROS_Visual_Assets/dros_lifecycle_flow_en.png)
 
 
 *   **Dynamic OTA Revocation and Hot-Updates**: When an Agent entity is detected to behave abnormally or its keys are leaked, the control plane immediately issues revocation information via the AIA (similar to a lightweight CRL or OCSP bitmap). Using **Epoch locking and the RCU (Read-Copy-Update) mechanism**, the DROS microkernel hot-updates the revocation state into the local GuardVM within 10 milliseconds without interrupting the execution of other normal agents, completing a physical circuit break to ensure the compromised agent instantly loses access to all sensitive APIs and system tools.
 
-### 4. 多智能體併發治理與技能權限位元圖控制 (Multi-Agent Concurrency & Skill Bitmaps)
-### 4. Multi-Agent Concurrency Control and Skill Bitmaps
+### 4. 解耦的雙層信任架構與可選的去中心化錨點 (Decoupled Dual-Layer Trust Architecture & Optional DLT Anchor)
+
+為了克服傳統中央集權式 PKI（單點失效與寡頭壟斷）以及純鏈上 Web3 方案（高延遲與高昂共識成本）的根本缺陷，DROS 提出了「Layer-1 信任結算」與「Layer-2 執行歸屬」解耦的雙層信任網絡：
+
+To overcome the fundamental drawbacks of traditional centralized PKI (single point of failure and corporate monopoly) and pure on-chain Web3 solutions (high latency and expensive consensus costs), DROS proposes a decoupled dual-layer trust network separating Layer-1 Trust Settlement from Layer-2 Execution Attribution:
+
+*   **Layer-1 信任結算層 (Trust Settlement Layer - 帶外共識)**：負責處理低頻、全網共識的控制流，包括全球中繼憑證機構 (AIA) 的註冊、金鑰展期與憑證撤銷名單 (CRL) 的更新。DROS 支持將此層錨定於去中心化帳本 (DLT/DID)，使全網根憑證治理無單點失效與寡頭控制風險。
+*   **Layer-1 Trust Settlement Layer (Out-of-band Consensus)**: Handles low-frequency control flows that require global consensus, including the registration of global Intermediate AIAs, key rotation, and CRL updates. DROS supports anchoring this layer to decentralized ledger technologies (DLT/DID), eliminating the risk of single point of failure and monopolistic corporate control over root certificates.
+*   **Layer-2 執行歸屬層 (Runtime Attribution Layer - 本機執行)**：負責高頻、海量的任務執行流，即 GuardVM 本機實體阻斷的場域。GuardVM 動態讀取本機快取的 CRL 與安全策略，在本地記憶體極速簽發單次執行憑證 (BEC) 並完成鏈式校驗，延遲低於 0.8 毫秒，且支援「斷網容災」，即使 Layer-1 網絡斷開，Layer-2 依然能依本地快取策略持續安全運作，徹底解決了高頻 Tool Call 上鏈的效能不可能三角。
+*   **Layer-2 Runtime Attribution Layer (Local Execution)**: Handles high-frequency, massive task execution flows, which is the domain enforced by the local GuardVM. GuardVM dynamically reads cached CRLs and security policies, issuing BECs (By-Execution Certificates) and performing chain verification in local memory in microseconds (averaging <0.8ms). It supports offline resilience; even if the Layer-1 DLT network goes offline, Layer-2 continues to operate securely using local cached rules, resolving the performance trilemma of high-frequency tool call execution.
+
+![Figure 3.5: DROS Global Agent Trust Infrastructure (GATI) Decoupled Architecture](DROS_Visual_Assets/dros_gati_architecture.png)
+
+### 5. 多智能體併發治理與技能權限位元圖控制 (Multi-Agent Concurrency & Skill Bitmaps)
+### 5. Multi-Agent Concurrency Control and Skill Bitmaps
 
 在大企業的大規模部署場景下，多智能體協同（Multi-Agent Workflows）與高併發處理是常態。不同職能的 Agent 擁有各自專屬的執行技能（Agent Skills），且需要並行發起系統調用：
 *   **精細化技能授權（Least-Privilege Skills）**：DROS 藉由 BEC 葉子憑證中內建的 **Capability Bitmap (技能權限位元圖)**，為每個 Agent 綁定專屬的權限。例如，**財務 Agent** 僅擁有「讀取資料庫」與「執行 Python 計算器」的位元授權；**通知 Agent** 僅擁有「發送 Slack 訊息」的授權。
 *   **高效無鎖併發校驗**：當多個異構 Agent 並行呼叫不同的 FFI 工具時，DROS `VajraClaw` 在 C-ABI 通道進行並行無鎖攔截，GuardVM 利用超低延遲（< 1 μs）的位元運算，同時完成各個 Agent 的憑證鏈與技能位元圖校驗。各個 Agent 執行緒之間完全物理隔離，確保高併發時系統零阻塞。
 
-![圖 4：多智能體技能點陣圖並發控制與無鎖位元運算檢索](DROS_Visual_Assets/dros_vajra_concurrency_zh.png)
 ![Figure 4: Multi-Agent Capability Bitmap Concurrency Control](DROS_Visual_Assets/dros_vajra_concurrency_en.png)
 
 
@@ -314,13 +323,12 @@ rules:
 
 *   **零拷貝共享記憶體機制 (Zero-Copy Shared Memory Pipeline)**：為了徹底消除高階 Agent 框架（如 Python LangChain、TypeScript 等）跨越 C-ABI 邊界時的資料序列化與拷貝開銷（Data Marshalling Overhead），DROS 在架構上實作了零拷貝設計。高階語言與 GuardVM 之間透過 **固定記憶體指針 (Pinned Pointers) 或環形緩衝區 (Ring-Buffer)** 傳遞 Token 與 Context 矩陣。這確保了複雜資料的傳遞不涉及昂貴的深度拷貝，從而保證 FFI 邊界檢查哨絕不會成為 Agent 首字延遲（First Token Latency）的瓶頸。
 
-![圖 5：C-FFI 邊界與 GuardVM 之間的零拷貝共享記憶體機制](DROS_Visual_Assets/dros_zerocopy_zh.png)
 ![Figure 5: Zero-Copy Shared Memory Pipeline between FFI Boundary and GuardVM](DROS_Visual_Assets/dros_zerocopy_en.png)
 
 加上這些跨語言呼叫的常數開銷，**實際端到端執法延遲在行動端為 8–20 μs，雲端為 20–80 μs**，數量級上依舊對傳統 OPA 具備壓倒性優勢。
 *   **Zero-Copy Shared Memory Pipeline**: To completely eliminate data serialization and copying overheads (data marshalling overhead) when high-level agent frameworks (such as Python LangChain, TypeScript, etc.) cross the C-ABI boundary, DROS implements a zero-copy design. High-level languages and GuardVM pass tokens and context matrices via **pinned pointers or ring-buffers**. This ensures that the transmission of complex data does not involve expensive deep copying, thereby guaranteeing that FFI boundary checks will never become a bottleneck for Agent First Token Latency. Factoring in these constant overheads of cross-language invocation, **the actual end-to-end enforcement latency is 8–20 μs on mobile endpoints and 20–80 μs in the cloud**, still retaining an overwhelming order-of-magnitude advantage over traditional OPA.
 
-### 2. 關於「動態 Tool 註冊與二進位憑證衝突」及 OTA 並發控制之答辯
+### 2. 關於「動態 Tool 註冊與二進位憑證衝突」及 OTA 並發控制之應對
 ### 2. Defense Regarding "Dynamic Tool Registration and Binary Credential Conflicts" and OTA Concurrency Control
 
 *   **質疑**：當面對多 Agent 系統中頻繁的動態 Tool 註冊或子 Agent 繼承時，如何保證靈活性？在生產環境高頻調度數十個 Agent 時，遠端 OTA 推送更新 policy.bin 是否會引發 Race Condition（競爭條件）或導致記憶體分頁斷裂？
@@ -331,7 +339,6 @@ rules:
 
 *   **Epoch 鎖定與 RCU 隔離並發模型**：為了在多 Agent 高並發環境下確保熱切換的絕對穩定，DROS 實作了 **RCU (Read-Copy-Update) 機制搭配雙緩衝區 (Double Buffering)**。當新政策編譯完成後，微內核會在無鎖 (Lock-Free) 狀態下進行原子級的指針切換 (Atomic Pointer Swap)。正在執行中的舊會話會被鎖定在舊的 Epoch 矩陣中平滑結束，而新的 Tool 呼叫則直接路由至新矩陣。這徹底排除了動態突變 (In-place Mutation) 引發的 Race Condition，保證物理熔斷與高頻驗證的系統絕對穩定。
 
-![圖 8：基於 Epoch 鎖定與 RCU（Read-Copy-Update）的無鎖策略熱更新並發模型](DROS_Visual_Assets/dros_rcu_zh.png)
 ![Figure 8: Lock-free Policy Hot-swap Concurrency Model based on RCU](DROS_Visual_Assets/dros_rcu_en.png)
 
 
@@ -349,7 +356,7 @@ rules:
 *   **初始化握手與短效執行權杖 (Lifecycle Management)**：為了解決非對稱密碼學（如 Ed25519）帶來的效能瓶頸，DROS 在硬體晶片認證的生命週期上進行了精準切割。高開銷的反插樁與晶片級簽章驗證**僅發生在「初始化握手階段 (Initialization Handshake)」**。一旦通過硬體根信任證明，GuardVM 就會在本機記憶體中鑄造一個具備時效性的**臨時執行權杖 (Ephemeral Execution Token)**。後續所有的 Agent Tool 攔截依然走純粹的 $\mathcal{O}(1)$ 點陣圖比對。這種設計既保留了 Secure Enclave 的物理安全硬度，又完美捍衛了極速的執行效能。
 *   **Initialization Handshake & Ephemeral Execution Token (Lifecycle Management)**: To solve the performance bottleneck caused by asymmetric cryptography (such as Ed25519), DROS precisely segments the lifecycle of hardware chip authentication. High-cost anti-instrumentation and chip-level signature verification **only occur during the "Initialization Handshake" stage**. Once hardware-root-of-trust proof is passed, GuardVM mints an **ephemeral execution token** in the local memory. All subsequent agent tool interceptions still use the pure $\mathcal{O}(1)$ bitmap comparison. This design both preserves the physical security hardness of the Secure Enclave and perfectly safeguards high-speed execution performance.
 
-### 4. 關於「FFI 攔截覆蓋之完整性與注入漏洞」之答辯
+### 4. 關於「FFI 攔截覆蓋之完整性與注入漏洞」之應對
 ### 4. Defense Regarding "FFI Interception Coverage Integrity and Injection Vulnerabilities"
 
 *   **質疑**：如何保證 FFI 邊界能被 100% 完整攔截而不被繞過？
@@ -358,7 +365,7 @@ rules:
 *   **防禦與權衡**：DROS 放棄「全能神」的防禦幻想，採取「閘口強迫執法 (Choke Point Enforcement)」原則。DROS 不保證攔截所有底層 syscall，但保證只要經過 `ToolExecutor` 介面發起的敏感調用，就一定具備密碼學身份並可追溯。如果攻擊者繞過 SDK 直接發起原生系統調用，企業部署的外圍基礎設施（如 Kubernetes Pod 安全策略、SELinux 或容器邊界的 eBPF 沙箱）將會接管戰場，因缺乏 DROS 密碼學簽章而將其物理擊斃。DROS 定位為 `Identity Enforcement Layer`，與外圍傳統沙箱完美協同。
 *   **Defense & Trade-offs**: DROS abandons the defensive illusion of an "omnipotent god" and adopts the "Choke Point Enforcement" principle. DROS does not guarantee the interception of all low-level system calls, but guarantees that any sensitive invocation initiated through the `ToolExecutor` interface must possess a cryptographic identity and be traceable. If an attacker bypasses the SDK to initiate native system calls directly, the peripheral infrastructure deployed by the enterprise (such as Kubernetes Pod Security Policies, SELinux, or container-boundary eBPF sandboxes) will take over the battlefield and physically neutralize it due to the lack of DROS cryptographic signatures. DROS is positioned as the `Identity Enforcement Layer`, collaborating perfectly with peripheral traditional sandboxes.
 
-### 5. 關於「與現有技術（eBPF、SPIFFE、OPA）之合成創新」之答辯
+### 5. 關於「與現有技術（eBPF、SPIFFE、OPA）之合成創新」之應對
 ### 5. Defense Regarding "Synthesized Innovation with Existing Technologies (eBPF, SPIFFE, OPA)"
 
 *   **質疑**：DROS 提及的概念在 eBPF、SPIFFE、OPA 中皆有類似進展，DROS 是否只是現有技術的重組？
@@ -366,6 +373,21 @@ rules:
 
 *   **防禦與權衡**：如同 Docker 並未發明 Linux Namespace，Kubernetes 並未發明 Container，重構架構並解決現有技術之間的斷層（Gap）是極具產業價值的**合成創新 (Synthesizing Innovation)**。SPIFFE 有身份但無法強制執法；eBPF 能攔截但對 Agent 語境盲目 (Context-Blind)；OPA 有策略但解析過慢。DROS 的核心價值是填補這層 **Missing Layer**：將身份語境壓縮為高性能位元矩陣，卡在二進位 FFI 邊界執行，專為 Agentic Web 提供標準化的實體憑證標準。
 *   **Defense & Trade-offs**: Just as Docker did not invent Linux Namespace, and Kubernetes did not invent Container, restructuring the architecture and bridging the gaps between existing technologies is a highly valuable **Synthesizing Innovation** for the industry. SPIFFE provides identity but lacks enforcement; eBPF intercepts but remains context-blind to agents; OPA manages policies but parses too slowly. DROS's core value is filling this **Missing Layer**: compressing the identity context into a high-performance bit-matrix and running it at the binary FFI boundary, providing a standardized hardware credential standard specifically for the Agentic Web.
+
+### 6. 關於「DROS 防禦對 AI 攻擊（如語意對齊、幻覺）之局限與明確防護邊界」之應對
+### 6. Defense Regarding "DROS Limitations Against AI Attacks (e.g., Alignment, Hallucination) and Formal Boundary Definition"
+
+*   **質疑**：DROS 是否能防範所有的 AI 攻擊？例如大模型的偏見、幻覺（Hallucination）或不對齊的錯誤語意輸出？
+*   **Objection**: Can DROS prevent all AI-related attacks? What about model biases, hallucinations, or unaligned semantic outputs?
+
+*   **防禦與權衡**：**DROS 拒絕進行通用型的語意與道德審查——這是刻意的工程解耦設計。** DROS 的核心哲學是提供底層執行期邊界的「確定性保證 (Deterministic Guarantees)」，而非不確定性的語意護欄。
+    *   **DROS 核心保證**：1) 執行授權強制性 (FFI-level 物理阻斷)；2) 密碼學身分不可否認性 (BEC 憑證鏈)；3) 審計完整性 (OSCAL 合規日誌)。
+    *   **DROS 不予保證防區**：不干涉模型語意正確性、不執行模型對齊審查、不攔截未觸發越權行為的純文字幻覺。這確保了系統誤報率 (FPR) 低於 2%。
+    此外，DROS 將 L1 語意過濾定位為**可插拔威脅情資適配器 (Pluggable Threat Intelligence Adapters)**。L1 ATR 語意引擎作為其中一個預警適配器，其核心角色是雷達 (Radar)，用以在輸入端預過濾已知威脅、降低系統資源消耗；而 DROS 核心 (GuardVM) 則是防火牆與煞車系統。即使在 L1 語意預警因為極端 Adaptive 攻擊漏報時，L2 FFI 合約實體邊界與 L3 密碼學憑證校驗依然能發揮物理熔斷與身分校阻斷作用，從而避免了系統核心陷入非確定性語意攻防的「軍備競賽」中。
+*   **Defense & Trade-offs**: **DROS explicitly rejects attempting general semantic and alignment auditing—this is a deliberate engineering decoupling.** DROS's core philosophy is to provide deterministic enforcement guarantees at the execution boundary rather than non-deterministic semantic guardrails.
+    *   *DROS Guarantees*: 1) Execution Authorization (FFI-level physical abort); 2) Cryptographic Non-Repudiation (BEC Chain verification); 3) Audit Integrity (OSCAL-compliant logging).
+    *   *DROS Non-Guarantees*: No intervention in semantic correctness, no model alignment auditing, and no blocking of text hallucinations that do not initiate out-of-scope actions. This architecture successfully keeps the False Positive Rate (FPR) under 2%.
+    Furthermore, DROS conceptualizes its L1 semantic-level filtering as pluggable threat intelligence adapters. The L1 ATR engine acts as a pre-filtering "radar" to drop known malicious payloads and optimize resource usage, while the DROS GuardVM serves as the firewall and braking system. Even if the L1 semantic check suffers from evasion under adaptive prompt mutations, the L2 FFI contract boundary guarantees that unauthorized system activities are stopped, preventing the core engine from becoming entangled in non-deterministic semantic arm-races.
 
 ---
 

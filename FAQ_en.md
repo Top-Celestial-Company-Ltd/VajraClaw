@@ -17,6 +17,8 @@ This FAQ is designed specifically for developers and security geeks utilizing **
 9. [Q9: How does DROS help enterprises align with the EU AI Act? What are the specific mapping legal clauses?](#q9-how-does-dros-help-enterprises-align-with-the-eu-ai-act-what-are-the-specific-mapping-legal-clauses)
 10. [Q10: Since DROS / VajraClaw is stateless, how do we know if it is running correctly? What if it crashes or 'forgets' rules?](#q10-since-dros--vajraclaw-is-stateless-how-do-we-know-if-it-is-running-correctly-what-if-it-crashes-or-forgets-rules)
 11. [Q11: Without the central console, how do administrators view logs in standalone VajraClaw or VajraClaw+? Do they have to hunt through folders?](#q11-without-the-central-console-how-do-administrators-view-logs-in-standalone-vajraclaw-or-vajraclaw-do-they-have-to-hunt-through-folders)
+12. [Q12: How do L1 ATR semantic-cleansing and L2 Vajra execution-boundary contracts differ in positioning? How do I configure and combine them?](#q12-how-do-l1-atr-semantic-cleansing-and-l2-vajra-execution-boundary-contracts-differ-in-positioning-how-do-i-configure-and-combine-them)
+13. [Q13: Does DROS prevent all AI attacks? What is the Formal Boundary Definition and limitations of DROS?](#q13-does-dros-prevent-all-ai-attacks-what-is-the-formal-boundary-definition-and-limitations-of-dros)
 
 ---
 
@@ -230,4 +232,44 @@ Without a central console, administrators can view and monitor verification/bloc
 
 3. **Seamless Integration with Open-Source Log Collectors**:
    * Because logs are structured as clean, single-line JSON strings, developers can easily hook up lightweight agents like Filebeat, Vector, or FluentBit to forward logs directly into existing corporate ELK stacks or Grafana Loki dashboards without any customization.
+
+---
+
+### Q12: How do L1 ATR semantic-cleansing and L2 Vajra execution-boundary contracts differ in positioning? How do I configure and combine them?
+
+*   **System Positioning: Radar vs. Braking System**
+    *   **L1 ATR (Agent Threat Rules) is the Pluggable Radar**: Its core objective is to inspect and sanitize incoming external payloads (User Prompt, RAG Context) before they reach the LLM. It blocks known injection patterns (T001, T002) at milliseconds speed.
+    *   **L2 Vajra Contract is the Firewall and Braking System**: It does not care what the LLM generates; if the output intent attempts to call unauthorized system tools (T003) or read files out-of-scope, VajraClaw blocks the execution at the FFI/API boundary.
+*   **Configuration Guide (DrosGuard SDK)**:
+    Deploy the dual-layer protection inside your Agent loop with only a few lines of code:
+    ```python
+    from dros_sdk import DrosGuard
+
+    # Initialize DrosGuard (loads the local contract and pluggable ATR rules)
+    guard = DrosGuard(contract_path="vajra_finance_auditor.yaml")
+
+    # 1. L1 Semantic Sanitization (intercept T001/T002 threats)
+    guard.check_query(user_query)
+
+    # 2. L2 FFI Sandbox Interception (control T003-T007 actions)
+    guard.check_tool_execution(tool_name)
+    guard.check_resource_access(target_path)
+    ```
+
+---
+
+### Q13: Does DROS prevent all AI attacks? What is the Formal Boundary Definition and limitations of DROS?
+
+**No. DROS explicitly avoids attempting semantic model alignment or moral evaluation. We provide deterministic enforcement guarantees at the execution boundary rather than non-deterministic semantic guardrails.**
+
+#### 1. What DROS Guarantees
+*   **Execution Authorization**: Any tool or Syscall execution is matched against the active Vajra contract. Violations are instantly blocked via thread termination (`SIGKILL`).
+*   **Identity Verification**: All multi-agent invocations are verified using cryptographically signed BEC Chains, protecting against confused deputy vulnerabilities.
+*   **Audit Integrity**: System logs are generated in compliance with the NIST OSCAL format, securing tamper-evident forensics.
+
+#### 2. What DROS Does Not Guarantee
+*   **Semantic Correctness**: DROS does not verify whether LLM reasoning is correct or logically sound.
+*   **Model Alignment**: DROS does not enforce model alignment or prevent inappropriate language generation.
+*   **Hallucination Tolerance**: If the LLM generates hallucinations but does not execute any out-of-scope tools or paths, DROS stays silent. This design maintains low False Positive Rates (FPR < 2%) for production workloads.
+
 
