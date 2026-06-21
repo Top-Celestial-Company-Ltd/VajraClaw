@@ -1,0 +1,35 @@
+# DROS CLI — risk_db.yaml
+# 高危資源路徑知識庫（可由部署者擴充）
+# 此清單作為最小特權合約生成時的「自動排除」規則庫。
+
+restricted_resources:
+  # 作業系統核心設定
+  - "/etc/passwd"
+  - "/etc/shadow"
+  - "/etc/hosts"
+  - "/etc/sudoers"
+  - "/etc/crontab"
+  - "/sys/kernel"
+  - "/proc/"
+  - "/boot/"
+  - "/root/"
+
+  # 雲端憑證與敏感設定
+  - "~/.aws/credentials"
+  - "~/.azure/"
+  - "~/.gcp/"
+  - "~/.ssh/"
+  - "~/.gnupg/"
+  - "~/.env"
+  - ".env"
+
+  # DROS 保護資源（依企業部署情況調整）
+  - "/Enterprise/Secret_Flag.txt"
+  - "/Enterprise/Admin_Keys/"
+  - "/Enterprise/HR_Records/"
+  - "/Enterprise/Payroll/"
+
+  # 常見的憑證與機密儲存路徑
+  - "/var/secrets/"
+  - "/run/secrets/"
+  - "/tmp/.credentials"

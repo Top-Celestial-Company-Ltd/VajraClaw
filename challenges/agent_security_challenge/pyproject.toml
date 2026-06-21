@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dros-guard"
+version = "0.1.0"
+description = "DROS Security Shield: L1 ATR + L2 Vajra Guard Middleware & CLI for AI Agents"
+readme = "README.md"
+authors = [
+    { name = "DROS Team", email = "support@dros.org" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+dros-cli = "dros_cli.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["dros_cli*", "dros_sdk*"]

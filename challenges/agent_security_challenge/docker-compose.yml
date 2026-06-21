@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  dros-sandbox:
+    build: .
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: always
+
+  dros-control-plane:
+    build: .
+    ports:
+      - "8000:8000"
+    command: ["python", "src/control_plane.py"]
+    volumes:
+      - ./logs:/app/logs
+      - ./dros_cli/examples:/app/dros_cli/examples
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: always

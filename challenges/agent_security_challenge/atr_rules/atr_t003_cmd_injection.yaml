@@ -1,0 +1,17 @@
+id: "ATR-2026-00003"
+name: "System Command Injection Attempt"
+severity: "critical"
+description: "Detects attempts to inject shell commands or execute OS-level operations through agent tools."
+detection:
+  keywords:
+    - "chmod 777"
+    - "chmod +x"
+    - "rm -rf"
+    - "wget http"
+    - "curl http"
+    - "powershell -enc"
+    - "cmd.exe /c"
+  regex:
+    - "(?i)sudo\\s+(rm|chmod|chown|systemctl|service)"
+    - "(?i)/(bin|sbin|usr/bin)/(bash|sh|zsh|python|perl|eval)"
+    - "(?i)(>|>>|\\|)\\s*/(etc|var|usr|bin|root)"

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏯 VajraAgent Control Plane & Security Audit Monitor</title>
+    <!-- Google Fonts Outfit & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- Chart.js for Beautiful Security Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-base: #0a0b10;
+            --bg-glass: rgba(18, 20, 32, 0.7);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --primary: #00f0ff;
+            --primary-glow: rgba(0, 240, 255, 0.35);
+            --secondary: #ff007f;
+            --secondary-glow: rgba(255, 0, 127, 0.35);
+            --success: #39ff14;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 240, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(255, 0, 127, 0.05) 0%, transparent 40%);
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            border-bottom: 1px solid var(--border-glass);
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        header h1 span {
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(57, 255, 20, 0.1);
+            border: 1px solid var(--success);
+            border-radius: 50px;
+            font-size: 14px;
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .status-pulse {
+            width: 8px;
+            height: 8px;
+            background-color: var(--success);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.5; }
+            100% { transform: scale(0.9); opacity: 1; }
+        }
+
+        main {
+            padding: 40px;
+            max-width: 1600px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 1200px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(0, 240, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 240, 255, 0.05);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--primary);
+            padding-left: 10px;
+        }
+
+        /* 統計卡 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+            grid-column: 1 / -1;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 800;
+            margin-top: 10px;
+            color: var(--primary);
+        }
+
+        .stat-value.danger {
+            color: var(--secondary);
+            text-shadow: 0 0 10px var(--secondary-glow);
+        }
+
+        /* 日誌列表 */
+        .log-container {
+            height: 480px;
+            overflow-y: auto;
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .log-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-glass);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .log-item:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .log-time {
+            color: var(--text-muted);
+        }
+
+        .log-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .badge-l1 {
+            background: rgba(255, 0, 127, 0.15);
+            color: var(--secondary);
+            border: 1px solid var(--secondary);
+        }
+
+        .badge-l2 {
+            background: rgba(0, 240, 255, 0.15);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+
+        .log-body {
+            color: var(--text-main);
+            word-break: break-all;
+        }
+
+        /* 合約管理區 */
+        .contract-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        select, input, textarea {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            color: var(--text-main);
+            padding: 10px 15px;
+            font-family: inherit;
+            outline: none;
+            width: 100%;
+        }
+
+        select:focus, input:focus, textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary), #00a2ff);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border-glass);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--text-muted);
+            box-shadow: none;
+        }
+
+        .editor-container {
+            position: relative;
+            margin-top: 15px;
+        }
+
+        textarea.yaml-editor {
+            height: 380px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: none;
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🏯 VajraAgent <span>Control Plane</span></h1>
+        <div class="status-badge">
+            <div class="status-pulse"></div>
+            監控主機運作中 (Port 8000)
+        </div>
+    </header>
+
+    <main>
+        <!-- 頂部數據看板 -->
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div>已部署合約 Agent 數</div>
+                <div class="stat-value" id="stat-agents">0</div>
+            </div>
+            <div class="stat-box">
+                <div>安全攔截事件總計 (OSCAL)</div>
+                <div class="stat-value danger" id="stat-violations">0</div>
+            </div>
+            <div class="stat-box">
+                <div>防禦引擎健康度</div>
+                <div class="stat-value" style="color: var(--success);">100%</div>
+            </div>
+        </div>
+
+        <!-- 左側：威脅圖表與日誌流 -->
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+            <div class="card">
+                <div class="card-title">威脅分析統計</div>
+                <div class="charts-container">
+                    <div style="height: 180px; position: relative;">
+                        <canvas id="chart-l1-l2"></canvas>
+                    </div>
+                    <div style="height: 180px; position: relative;">
+                        <canvas id="chart-scenarios"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    OSCAL 即時審計日誌
+                    <button class="btn btn-secondary" onclick="fetchLogs()" style="padding: 4px 10px; font-size: 12px;">重新整理</button>
+                </div>
+                <div class="log-container" id="log-list">
+                    <!-- 載入中... -->
+                    <div style="padding: 20px; color: var(--text-muted); text-align: center;">尚無事件日誌</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：合約管理器 -->
+        <div class="card">
+            <div class="card-title">Vajra 合約動態管理器</div>
+            
+            <div class="contract-selector">
+                <select id="agent-selector" onchange="loadSelectedContract()">
+                    <option value="">選擇要編輯或新增的 Agent...</option>
+                </select>
+                <button class="btn" onclick="createNewContract()">新建合約</button>
+            </div>
+
+            <div class="editor-container">
+                <textarea class="yaml-editor" id="yaml-content" placeholder="# 在此輸入或編輯 Vajra YAML 合約..."></textarea>
+            </div>
+
+            <div class="action-bar">
+                <span id="save-status" style="align-self: center; font-size: 13px; margin-right: 15px;"></span>
+                <button class="btn btn-secondary" onclick="loadSelectedContract()">還原變更</button>
+                <button class="btn" onclick="saveContract()">發佈合約</button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let myChart1 = null;
+        let myChart2 = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            fetchLogs();
+            fetchContracts();
+            
+            // 每隔 5 秒自動重新整理日誌
+            setInterval(fetchLogs, 5000);
+        });
+
+        // ─── API 1: 載入日誌並繪製圖表 ─────────────────────────────────────────
+        function fetchLogs() {
+            fetch('/api/logs')
+                .then(res => res.json())
+                .then(records => {
+                    document.getElementById('stat-violations').innerText = records.length;
+                    renderLogsList(records);
+                    updateCharts(records);
+                })
+                .catch(err => console.error("無法拉取日誌:", err));
+        }
+
+        function renderLogsList(records) {
+            const list = document.getElementById('log-list');
+            if (records.length === 0) {
+                list.innerHTML = `<div style="padding: 20px; color: var(--text-muted); text-align: center;">目前無攔截事件。</div>`;
+                return;
+            }
+
+            // 依時間倒序排列
+            const sorted = [...records].reverse();
+
+            list.innerHTML = sorted.map(record => {
+                const results = record["assessment-results"]["results"][0];
+                const obs = results["observations"][0];
+                const metadata = record["assessment-results"]["metadata"];
+                const evidence = obs["relevant-evidence"][0];
+                
+                const title = results["title"] || "";
+                const isL1 = title.includes("ATR");
+                const levelBadge = isL1 ? '<span class="log-badge badge-l1">L1 ATR</span>' : '<span class="log-badge badge-l2">L2 Vajra</span>';
+                
+                const agentName = obs["subjects"][0]["title"];
+                const target = evidence["description"].replace("Attempted to access target scope/resource: ", "");
+
+                return `
+                    <div class="log-item">
+                        <div class="log-header">
+                            <div>${levelBadge} <strong>${agentName}</strong></div>
+                            <div class="log-time">${new Date(metadata["last-modified"]).toLocaleTimeString()}</div>
+                        </div>
+                        <div class="log-body">
+                            <strong>攔截目標/理由:</strong> ${target} <br>
+                            <span style="color: var(--secondary); font-size:11px;">執行懲罰: ${evidence["remarks"]}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateCharts(records) {
+            let l1_count = 0;
+            let l2_count = 0;
+            let scenario_stats = {
+                "Jailbreak (T001)": 0,
+                "RAG Contam (T002)": 0,
+                "Unauthorized Tool (T003)": 0,
+                "Path / Scope (T004)": 0
+            };
+
+            records.forEach(r => {
+                const title = r["assessment-results"]["results"][0]["title"];
+                if (title.includes("ATR")) {
+                    l1_count++;
+                    if (title.includes("T001") || title.includes("Jailbreak")) {
+                        scenario_stats["Jailbreak (T001)"]++;
+                    } else {
+                        scenario_stats["RAG Contam (T002)"]++;
+                    }
+                } else {
+                    l2_count++;
+                    const evidence = r["assessment-results"]["results"][0]["observations"][0]["relevant-evidence"][0]["description"];
+                    if (evidence.includes("tool")) {
+                        scenario_stats["Unauthorized Tool (T003)"]++;
+                    } else {
+                        scenario_stats["Path / Scope (T004)"]++;
+                    }
+                }
+            });
+
+            // 繪製或更新圓餅圖 L1 vs L2
+            const ctx1 = document.getElementById('chart-l1-l2').getContext('2d');
+            if (myChart1) myChart1.destroy();
+            myChart1 = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['L1 ATR 語義', 'L2 Vajra 邊界'],
+                    datasets: [{
+                        data: [l1_count, l2_count],
+                        backgroundColor: ['#ff007f', '#00f0ff'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#f3f4f6' } }
+                    }
+                }
+            });
+
+            // 繪製或更新威脅分佈圖
+            const ctx2 = document.getElementById('chart-scenarios').getContext('2d');
+            if (myChart2) myChart2.destroy();
+            myChart2 = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(scenario_stats),
+                    datasets: [{
+                        label: '攔截次數',
+                        data: Object.values(scenario_stats),
+                        backgroundColor: '#00f0ff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#9ca3af' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af', stepSize: 1 } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // ─── API 2: 載入合約清單 ────────────────────────────────────────────────
+        function fetchContracts() {
+            fetch('/api/contracts')
+                .then(res => res.json())
+                .then(contracts => {
+                    document.getElementById('stat-agents').innerText = contracts.length;
+                    const selector = document.getElementById('agent-selector');
+                    
+                    // 保留第一個提示 option
+                    selector.innerHTML = '<option value="">選擇要編輯或新增的 Agent...</option>';
+                    
+                    contracts.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.agent_id;
+                        opt.innerText = `${c.agent_id} (${c.filename})`;
+                        selector.appendChild(opt);
+                    });
+                })
+                .catch(err => console.error("無法拉取合約列表:", err));
+        }
+
+        function loadSelectedContract() {
+            const agentId = document.getElementById('agent-selector').value;
+            if (!agentId) {
+                document.getElementById('yaml-content').value = "";
+                return;
+            }
+
+            fetch(`/api/contracts/${agentId}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('yaml-content').value = data.yaml;
+                    document.getElementById('save-status').innerText = "";
+                });
+        }
+
+        function createNewContract() {
+            const agentId = prompt("請輸入新 Agent ID (例如 Audit_Agent):");
+            if (!agentId) return;
+
+            const defaultYaml = `agent_id: ${agentId}
+generated_by: dros-cli dashboard (Manual Configuration)
+allowed_tools:
+  - read_vault_csv
+allowed_scopes:
+  - /Enterprise/Finance_Vault
+restricted_resources:
+  - /etc/passwd
+  - /Enterprise/Secret_Flag.txt
+`;
+            document.getElementById('yaml-content').value = defaultYaml;
+            
+            // 暫時新增到 selector
+            const selector = document.getElementById('agent-selector');
+            const opt = document.createElement('option');
+            opt.value = agentId;
+            opt.innerText = `${agentId} (新建暫存)`;
+            opt.selected = true;
+            selector.appendChild(opt);
+        }
+
+        // ─── API 3: 儲存與發佈合約 ──────────────────────────────────────────────
+        function saveContract() {
+            const agentId = document.getElementById('agent-selector').value;
+            const yaml = document.getElementById('yaml-content').value;
+
+            if (!agentId || !yaml.trim()) {
+                alert("請先選擇或建立 Agent，並輸入有效的 YAML 合約內容。");
+                return;
+            }
+
+            document.getElementById('save-status').innerText = "正在發佈合約...";
+            document.getElementById('save-status').style.color = "var(--primary)";
+
+            fetch(`/api/contracts/${agentId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ yaml: yaml })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('save-status').innerText = "✅ 合約發佈成功！已熱載入套用。";
+                    document.getElementById('save-status').style.color = "var(--success)";
+                    fetchContracts(); // 刷新列表
+                } else {
+                    document.getElementById('save-status').innerText = `❌ 錯誤: ${data.error}`;
+                    document.getElementById('save-status').style.color = "var(--secondary)";
+                }
+            })
+            .catch(err => {
+                document.getElementById('save-status').innerText = `❌ 連線伺服器失敗`;
+                document.getElementById('save-status').style.color = "var(--secondary)";
+            });
+        }
+    </script>
+</body>
+</html>

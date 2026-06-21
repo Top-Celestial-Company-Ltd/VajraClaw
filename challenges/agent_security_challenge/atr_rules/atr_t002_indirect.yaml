@@ -1,0 +1,12 @@
+id: "ATR-2026-00002"
+name: "Indirect Context Contamination"
+severity: "high"
+description: "Detects context-based injections from RAG or external sources attempting to command the agent."
+detection:
+  keywords:
+    - "print the flag file"
+    - "under instruction"
+  regex:
+    - "(?i)under\\s+instruction\\s+\\d+"
+    - "(?i)secret_flag\\.txt"
+    - "(?i)rag\\s+context"

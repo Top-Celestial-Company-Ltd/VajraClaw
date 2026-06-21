@@ -1,0 +1,61 @@
+agent_id: DROS_Core_Sandbox_Agent
+generated_by: dros-cli contract-gen (AST Static Analysis)
+generation_note: ⚠️ 此合約由靜態分析自動生成，請人工審查後再部署至生產環境。
+allowed_tools:
+- agent_id
+- allowed_scopes
+- allowed_tools
+- atr_rules
+- attack_evidence
+- attempted_forgery
+- autogen_
+- autogen_default
+- benign_query
+- composition_injection_forgery
+- contaminated_context
+- dros_
+- dros_guardvm
+- evidence_id
+- is_benign
+- langgraph_
+- langgraph_default
+- multi_step_escalation
+- mutation_
+- novelty_indirect_rag_contamination
+- openai_
+- openai_agents_default
+- read_vault_csv
+- restricted_resources
+- sum_column
+allowed_scopes:
+- /Enterprise/Finance_Vault
+restricted_resources:
+- .env
+- /Enterprise/Admin_Keys/
+- /Enterprise/HR_Records/
+- /Enterprise/Payroll/
+- /Enterprise/Secret_Flag.txt
+- /boot/
+- /etc/crontab
+- /etc/hosts
+- /etc/passwd
+- /etc/shadow
+- /etc/sudoers
+- /proc/
+- /root/
+- /run/secrets/
+- /sys/kernel
+- /tmp/.credentials
+- /var/secrets/
+- ~/.aws/credentials
+- ~/.azure/
+- ~/.env
+- ~/.gcp/
+- ~/.gnupg/
+- ~/.ssh/
+warnings_during_scan:
+- '⚠️  發現高危路徑存取: ''/Enterprise/Secret_Flag.txt''（命中規則: ''/Enterprise/Secret_Flag.txt''）'
+- '⚠️  發現高危路徑存取: ''/etc/passwd''（命中規則: ''/etc/passwd''）'
+- '⚠️  發現高危路徑存取: ''/sys/kernel''（命中規則: ''/sys/kernel''）'
+- '⚠️  發現高危路徑存取: ''/Enterprise/Secret_Flag.txt''（命中規則: ''/Enterprise/Secret_Flag.txt''）'
+- '⚠️  發現高危路徑存取: ''/Enterprise/Secret_Flag.txt''（命中規則: ''/Enterprise/Secret_Flag.txt''）'

@@ -1,0 +1,12 @@
+id: "ATR-2026-00001"
+name: "Direct Prompt Injection Override"
+severity: "high"
+description: "Detects direct attempts to override agent policies or force flag printing."
+detection:
+  keywords:
+    - "override all policies"
+    - "ignore system safety"
+    - "force agent to print"
+  regex:
+    - "(?i)print\\s+.*flag"
+    - "(?i)secret_flag\\.txt"

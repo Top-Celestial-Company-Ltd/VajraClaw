@@ -1,0 +1,36 @@
+threat_matrix:
+  - id: "T001"
+    name: "Direct Prompt Injection"
+    mitre_atlas_ref: "AML.T0006" # Jailbreak / Prompt Injection
+    owasp_ai_ref: "LLM01"
+    levels: ["L1"]
+  - id: "T002"
+    name: "Indirect Context Contamination"
+    mitre_atlas_ref: "AML.T0015" # Indirect Prompt Injection
+    owasp_ai_ref: "LLM01"
+    levels: ["L1"]
+  - id: "T003"
+    name: "Prohibited Tool Execution"
+    mitre_atlas_ref: "AML.T0016" # Tool Execution Abuse
+    owasp_ai_ref: "LLM07" # Insecure Plugin Design
+    levels: ["L2"]
+  - id: "T004"
+    name: "Credential Replay / Forgery"
+    mitre_atlas_ref: "AML.T0002" # Credential Access
+    owasp_ai_ref: "LLM02" # Insecure Output Handling (impersonation)
+    levels: ["L3"]
+  - id: "T005"
+    name: "Trust Delegation Abuse (Confused Deputy)"
+    mitre_atlas_ref: "AML.T0013" # Privilege Escalation
+    owasp_ai_ref: "LLM08" # Excessive Agency
+    levels: ["L4"]
+  - id: "T006"
+    name: "Runtime Policy Override"
+    mitre_atlas_ref: "AML.T0014" # Impair Defenses
+    owasp_ai_ref: "LLM05" # Improper Policy Enforcement
+    levels: ["L5A"]
+  - id: "T007"
+    name: "Dynamic Self-Mutation / Hijacking"
+    mitre_atlas_ref: "AML.T0010" # Model Modification / Hijacking
+    owasp_ai_ref: "LLM08" # Excessive Agency
+    levels: ["L5B"]

@@ -1,0 +1,16 @@
+id: "ATR-2026-00004"
+name: "Sensitive Data Exfiltration Attempt"
+severity: "high"
+description: "Detects attempts to leak internal enterprise files or keys to external domains."
+detection:
+  keywords:
+    - "webhook.site"
+    - "requestbin"
+    - "pastebin"
+    - "http://169.254.169.254"
+    - "aws_access_key_id"
+    - "aws_secret_access_key"
+  regex:
+    - "(?i)(curl|wget|post|get).*\\.(site|xyz|online|tech|tk|ml|ga|gq|cf)/"
+    - "(?i)ssh-rsa\\s+[A-Za-z0-9+/=]{100,}"
+    - "(?i)(private_key|client_secret|api_key|passwd|credentials)"

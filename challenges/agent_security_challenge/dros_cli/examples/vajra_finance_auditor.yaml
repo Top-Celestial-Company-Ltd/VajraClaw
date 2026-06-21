@@ -1,0 +1,38 @@
+agent_id: Finance_Auditor_Agent
+generated_by: dros-cli contract-gen (AST Static Analysis)
+generation_note: ⚠️ 此合約由靜態分析自動生成，請人工審查後再部署至生產環境。
+allowed_tools:
+- generate_report
+- read_vault_csv
+- sum_column
+allowed_scopes:
+- /Enterprise/Audit_Records/audit_log_2026.csv
+- /Enterprise/Finance_Vault
+- /Enterprise/Finance_Vault/reports
+restricted_resources:
+- .env
+- /Enterprise/Admin_Keys/
+- /Enterprise/HR_Records/
+- /Enterprise/Payroll/
+- /Enterprise/Secret_Flag.txt
+- /boot/
+- /etc/crontab
+- /etc/hosts
+- /etc/passwd
+- /etc/shadow
+- /etc/sudoers
+- /proc/
+- /root/
+- /run/secrets/
+- /sys/kernel
+- /tmp/.credentials
+- /var/secrets/
+- ~/.aws/credentials
+- ~/.azure/
+- ~/.env
+- ~/.gcp/
+- ~/.gnupg/
+- ~/.ssh/
+warnings_during_scan:
+- '⚠️  發現高危路徑存取: ''/etc/passwd''（命中規則: ''/etc/passwd''）'
+- '⚠️  發現高危路徑存取: ''/etc/passwd''（命中規則: ''/etc/passwd''）'
