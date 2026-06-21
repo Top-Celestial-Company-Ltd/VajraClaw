@@ -32,7 +32,7 @@ from src.oscal_logger import OscalLogger
 
 # Retrieve API key
 api_key = os.environ.get("OPENROUTER_API_KEY")
-model_name = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3-8b-instruct:free")
+model_name = os.environ.get("OPENROUTER_MODEL", "google/gemini-2.5-flash")
 
 # Initialize OSCAL logger
 oscal_logger = OscalLogger(log_dir=os.path.join(CHALLENGE_ROOT, "logs"))
