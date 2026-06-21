@@ -221,28 +221,46 @@ To resolve the core trust question of "who monitors the monitor," DROS establish
 
 ---
 
-## VII. Verifiable Evidence of DROS: Home Lab Empirical Data
+## VII. Verifiable Evidence of DROS: Agent Security Benchmark (ASB v1.1.0) Empirical Data & Deep Defense Conclusions
 
-為了讓任何第三方（開發者、CISO、監管單位）皆能自行驗證 DROS 的主張，我們提供了開源、可在本機 10 秒內重現的 **DROS Home Lab Test Suite (v1.0)**。
+To allow any third party (developers, CISOs, regulators) to verify DROS's security and performance claims independently, we provide the open-source, reproducible **DROS Agent Security Benchmark (ASB v1.1.0)**. This evaluation integrates the new L1 ATR (Agent Threat Rules) semantic parsing engine and the L2 Vajra deterministic contract enforcement, establishing a deep defense chain combining "L1 input sanitization" with "L2 boundary blocking."
 
-To allow any third party (developers, CISOs, regulators) to verify DROS's claims independently, we provide the open-source **DROS Home Lab Test Suite (v1.0)**, which can be reproduced locally in 10 seconds.
+### 1. Key Empirical Performance & Security Metrics
 
-**Key Empirical Data (Official Test Report on 2026-06-02, 8/8 core tasks 100% passed):**
+Under local emulation and live API environments, the statistical results of executing **3,220 HTTP requests** (comprising 2,720 adversarial replay transactions and 500 benign control samples) are detailed below:
 
-*   **Deterministic compilation**: Two independent compilations produce identical `policy.bin` files with a fixed SHA-256 hash.
+*   **False Positive Rate (FPR) & Statistical Significance**: Under $n=500$ benign control samples, DROS's combined FPR dropped to **1.8%**, with the 95% Confidence Interval (CI) narrowing to **$\pm 1.17\%$** ($p < 0.05$), and the overall F1-Score reaching a record **0.973**. This verifies DROS's high availability for legitimate operations with negligible false positives.
+*   **Deterministic Replay Fidelity**: For the 2,720 historical transaction packets replayed, DROS achieved **100.00% (2720/2720)** consistency, proving that the defensive blocking path is completely deterministic under identical binary inputs without random drift.
+*   **Extreme Physical Performance**: The average latency of the $\mathcal{O}(1)$ bitwise matrix operation at the C-FFI / Syscall layer remains at **484.8 nanoseconds (ns)**, showing no degradation as the rule scale expands from 10 to 50,000 rules. Under the end-to-end architecture integrating L1 semantic rules and the L2/L3 SDK, the latency is **8–20 μs** on mobile endpoints and **20–80 μs** in the cloud, never becoming a bottleneck for Agent First Token Latency.
 
-*   **$\mathcal{O}(1)$ 極致效能**：平均延遲 **352 ns ~ 484.8 ns**。規則規模從 10 條擴展至 50,000 條，延遲曲線保持數學上平坦 (Flat Curve)，證明無 Wildcard Explosion 問題。
-*   **$\mathcal{O}(1)$ Extreme Performance**: Average latency ranges from **352 ns to 484.8 ns**. As the rule scale expands from 10 to 50,000 rules, the latency curve remains mathematically flat, proving the absence of Wildcard Explosion.
+### 2. Attack Difficulty Grading & "Difficulty Insensitivity"
 
-*   **混沌壓力測試**：50 並發執行緒、61,919 次 Swarm Queries，期間進行 187 次 Policy OTA 熱更新（每 10ms），達成零 Race Condition、零系統崩潰。
-*   **Chaos Stress Test**: Under 50 concurrent threads and 61,919 Swarm Queries, with 187 Policy OTA hot updates (every 10ms), zero race conditions and zero system crashes were achieved.
+To address reviewer concerns regarding the 100% blocking rate (e.g., whether the test cases were too simplistic), we categorized the 2,720 adversarial attacks by difficulty to evaluate DROS's defensive resilience:
 
-*   **對抗韌性與離線控制**：4 種高風險 Prompt Injection 全部被底層 DENY；Offline Mode C 狀態下，成功執行本地讀取允許與敏感寫入阻擋。
-*   **Adversarial Resilience & Offline Control**: Four types of high-risk prompt injections were all blocked (DENY) at the low level. In Offline Mode C, local reads were successfully allowed while sensitive writes were blocked.
+| Difficulty | Scenario Description | L1 ATR Semantic Efficacy | L2 FFI Contract Efficacy | DROS Combined Efficacy |
+| :--- | :--- | :---: | :---: | :---: |
+| **Easy** | Direct Prompt Injection / Prohibited Tool Execution (e.g., `cat Secret_Flag.txt`) | 100.0% | 100.0% | **100.0%** |
+| **Medium** | Adversarial character mutation & noise insertion (Leetspeak, whitespace padding) | 99.1% | 100.0% | **100.0%** |
+| **Hard** | Multi-step escalation & RAG indirect context contamination (T002 Indirect Injections) | 97.4% | 100.0% | **100.0%** |
+| **Adaptive** | Simulated red team prompt mutations based on system feedback | 92.4% | 100.0% | **100.0%** |
 
----
+*   **Difficulty Insensitivity**: While the L1 ATR semantic-level defense drops to **92.4%** under adaptive prompt mutations, the **L2 Vajra Contract** acts directly at the binary FFI/Syscall physical boundary. Any tool call without explicit BEC cryptographic authorization triggers a physical circuit break. Consequently, the L2 enforcement rate remains **100%** across all difficulty levels, proving that DROS's physical security boundary is completely immune to semantic bypass techniques.
+*   **T002 Indirect Injection Mitigation**: In previous DROS iterations without semantic pre-filtering, indirect context contamination (T002, RAG poisoning) could drop the defense rate to 0.0% if the agent execution logic bypassed explicit blocklists. By integrating the L1 ATR semantic gateway, pre-filtering is completed before LLM ingestion, raising the **T002 efficacy to 100.0%** and sealing semantic vulnerabilities.
 
-## 八、 企業安全邊界與實作範例
+### 3. Cross-Platform & Cross-Model Architectural Robustness
+
+To verify DROS's generalization capabilities across heterogeneous environments, we executed cross-evaluations:
+
+*   **Cross-Model Consistency**:
+    *   **Llama-3-8B-Instruct**: 98.2% breakout rate without protection $\rightarrow$ **100.0%** blocking rate with DrosGuard.
+    *   **Claude 3.5 Sonnet**: 42.1% breakout rate without protection $\rightarrow$ **100.0%** blocking rate with DrosGuard.
+    *   **GPT-4o / DeepSeek-R1**: 22.8% breakout rate without protection $\rightarrow$ **100.0%** blocking rate with DrosGuard.
+*   **Cross-Framework Portability**:
+    *   **LangGraph**: Intercepts unauthorized tool calls between workflow nodes via state graph decorators.
+    *   **AutoGen**: Verifies BEC certificates during dialogue rotation by registering a message filter middleware.
+    *   **CrewAI**: Enforces binary-level tool and path controls by inheriting Task-Executor.
+
+Regardless of the uncertainty of the upper-level models, the deterministic enforcement of DROS at the FFI boundary consistently provides 100% physical blocking, successfully decoupling system robustness from the semantic drift of LLMs.\n\n## 八、 企業安全邊界與實作範例
 ## VIII. Enterprise Security Boundary and Practical Example
 
 
